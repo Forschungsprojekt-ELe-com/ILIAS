@@ -256,6 +256,37 @@ class ilLMTracker
                 $read_diff = 1;
             }
 
+
+            /**
+             * @author Internetlehrer GmbH
+             * @package Events2Lrs
+             */
+            if(!$this->dirty) {
+
+                /** @var ILIAS\DI\Container $DIC */ global $DIC;
+
+                $eventParam = [
+                    'obj_id' => ilObject::_lookupObjId($this->lm_ref_id),
+                    'ref_id' => $this->lm_ref_id,
+                    'pg_id' => $a_page_id,
+                    'usr_id' => $this->user_id,
+                    'time_diff' => $time_diff,
+                    'read_diff' => $read_diff,
+                ];
+
+                #$DIC->dex($eventParam);
+
+                $DIC->event()->raise(
+                    'Services/Tracking',
+                    'trackIliasLearningModulePageAccess',
+                    $eventParam
+                );
+
+            }
+            /** @package EOF Events2Lrs */
+
+
+
             // find parent chapter(s) for that page
             $parent_st_ids = array();
             foreach ($this->lm_tree->getPathFull($pg_id) as $item) {
