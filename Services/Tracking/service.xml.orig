@@ -10,9 +10,7 @@
 		</object>
 	</objects>
 	<events>		
-		<event type="raise" id="updateStatus" />
-		<event type="raise" id="readCounterChange" />
-		<event type="raise" id="afterChangeEvent" />
+		<event type="raise" id="updateStatus" />	
 		<event type="listen" id="Services/Object" />
 		<event type="listen" id="Services/Tree" />
 		<event type="listen" id="Modules/Course" />

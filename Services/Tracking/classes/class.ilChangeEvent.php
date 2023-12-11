@@ -190,6 +190,21 @@ class ilChangeEvent
             $aff = $ilDB->manipulate($query);
 
             self::_recordObjStats($obj_id, $time_diff, $read_count_diff);
+
+            $DIC->event()->raise(
+                'Services/Tracking',
+                'readCounterChange',
+                [
+                    'obj_id' => $obj_id,
+                    'ref_id' => $a_ref_id,
+                    'usr_id' => $usr_id,
+                    'changeEvent' => 'read_event',
+                    'changeProp' => [
+                        'spent_seconds' => $time
+                    ]
+                ]
+            );
+
         } else {
             if ($a_ext_time !== false) {
                 $time = (int) $a_ext_time;
@@ -197,7 +212,7 @@ class ilChangeEvent
                 $time = 0;
             }
 
-            $time_diff = $time - (int) $row->spent_seconds;
+            $time_diff = $time - (int) $row->spent_seconds; //UK does not make sense
             
             /*
             $query = sprintf('INSERT INTO read_event (obj_id,usr_id,last_access,read_count,spent_seconds,first_access) '.
@@ -228,6 +243,20 @@ class ilChangeEvent
             self::$has_accessed[$obj_id][$usr_id] = true;
 
             self::_recordObjStats($obj_id, $time_diff, $read_count_diff);
+
+            $DIC->event()->raise(
+                'Services/Tracking',
+                'readCounterChange',
+                [
+                    'obj_id' => $obj_id,
+                    'ref_id' => $a_ref_id,
+                    'usr_id' => $usr_id,
+                    'changeEvent' => 'read_event',
+                    'changeProp' => [
+                        'spent_seconds' => $time
+                    ]
+                ]
+            );
         }
         
         if ($isCatchupWriteEvents) {
@@ -269,6 +298,21 @@ class ilChangeEvent
                             $aff = $ilDB->manipulate($query);
 
                             self::_recordObjStats($obj2_id, null, null, (int) $time_diff, (int) $read_count_diff);
+
+                            $DIC->event()->raise(
+                                'Services/Tracking',
+                                'afterChangeEvent',
+                                [
+                                    'obj_id' => $obj2_id,
+                                    'ref_id' => $p,
+                                    'usr_id' => $usr_id,
+                                    'changeEvent' => 'read_event',
+                                    'changeProp' => [
+                                            'spent_seconds' => ((int) $row2['childs_spent_seconds'] + $time_diff)
+                                    ]
+                                ]
+                            );
+
                         } else {
                             //echo "<br>3";
                             //$ilLog->write("insert read event for obj_id -".$obj2_id."-".$usr_id."-");
@@ -307,6 +351,21 @@ class ilChangeEvent
                             self::$has_accessed[$obj2_id][$usr_id] = true;
                             
                             self::_recordObjStats($obj2_id, $time, 1, (int) $time_diff, (int) $read_count_diff);
+
+                            $DIC->event()->raise(
+                                'Services/Tracking',
+                                'afterChangeEvent',
+                                [
+                                    'obj_id' => $obj2_id,
+                                    'ref_id' => $p,
+                                    'usr_id' => $usr_id,
+                                    'changeEvent' => 'read_event',
+                                    'changeProp' => [
+                                        'spent_seconds' => $time_diff
+                                    ]
+                                ]
+                            );
+
                         }
                     }
                 }
