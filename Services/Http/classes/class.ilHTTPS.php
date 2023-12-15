@@ -212,6 +212,7 @@ class ilHTTPS
                 'domain' => IL_COOKIE_DOMAIN,
                 'secure' => true,
                 'httponly' => IL_COOKIE_HTTPONLY,
+                'samesite' => 'None',
             ]);
         }
 
