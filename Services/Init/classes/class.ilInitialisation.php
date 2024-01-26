@@ -697,7 +697,7 @@ class ilInitialisation
                 $cookie_secure &&
                 (!isset(session_get_cookie_params()['samesite']) || strtolower(session_get_cookie_params()['samesite']) !== 'strict')
             ) {
-                $cookie_parameters['samesite'] = 'Lax';
+                $cookie_parameters['samesite'] = 'None'; //Before: Lax. Change for Invite Toolcheck
             }
 
             session_set_cookie_params($cookie_parameters);
