@@ -261,6 +261,26 @@ abstract class ilTestOutputGUI extends ilTestPlayerAbstractGUI
         $this->ctrl->setParameter($this, 'sequence', $sequenceElement);
         $this->ctrl->setParameter($this, 'pmode', '');
 
+        /**
+         * @author Internetlehrer-GmbH
+         * @package Events2Lrs
+         */
+        global $DIC;  /** @var \ILIAS\DI\Container $DIC */
+
+        $DIC->logger()->root()->debug('############## Plugins/Events2Lrs startTestPass');
+
+        $DIC->event()->raise(
+            'Modules/Test',
+            'startTestPass',
+            [
+                'active_id' => $this->testSession->getActiveId(),
+                'pass' => $this->testSession->getPass(),
+                'user_id' => $this->testSession->getUserId(),
+                'ref_id' => $this->object->getRefId()
+            ]
+        );
+        /** @package EOF Events2Lrs */
+
         if ($this->object->getListOfQuestionsStart()) {
             $this->ctrl->redirect($this, ilTestPlayerCommands::QUESTION_SUMMARY);
         }
@@ -874,6 +894,26 @@ abstract class ilTestOutputGUI extends ilTestPlayerAbstractGUI
             $this->testSequence->createNewSequence($this->object->getQuestionCount(), $shuffle);
             $this->testSequence->saveToDb();
         }
+
+        /**
+         * @author Internetlehrer-GmbH
+         * @package Events2Lrs
+         */
+        global $DIC;  /** @var \ILIAS\DI\Container $DIC */
+
+        $DIC->logger()->root()->debug('############## Plugins/Events2Lrs resumeTestPass');
+
+        $DIC->event()->raise(
+            'Modules/Test', # Services/Tracking
+            'resumeTestPass',
+            [
+                'active_id' => $this->testSession->getActiveId(),
+                'pass' => $this->testSession->getPass(),
+                'user_id' => $this->testSession->getUserId(),
+                'ref_id' => $this->object->getRefId()
+            ]
+        );
+        /** @package EOF Events2Lrs */
 
         if ($this->object->getListOfQuestionsStart()) {
             $this->ctrl->redirect($this, ilTestPlayerCommands::QUESTION_SUMMARY);

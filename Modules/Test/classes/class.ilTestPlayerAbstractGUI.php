@@ -207,6 +207,26 @@ abstract class ilTestPlayerAbstractGUI extends ilTestServiceGUI
 
     public function suspendTestCmd()
     {
+        /**
+         * @author Internetlehrer-GmbH
+         * @package Events2Lrs
+         */
+        global $DIC;
+
+        $DIC->logger()->root()->debug('############## Plugins/Events2Lrs suspendTestPass');
+
+        $DIC->event()->raise(
+            'Modules/Test',
+            'suspendTestPass',
+            [
+                'active_id' => $this->testSession->getActiveId(),
+                'pass' => $this->testSession->getPass(),
+                'user_id' => $this->testSession->getUserId(),
+                'ref_id' => $this->object->getRefId()
+            ]
+        );
+        /** @package EOF Events2Lrs */
+
         $this->ctrl->redirectByClass("ilobjtestgui", "infoScreen");
     }
 
@@ -841,6 +861,25 @@ abstract class ilTestPlayerAbstractGUI extends ilTestServiceGUI
     {
         $finishTasks = new ilTestPassFinishTasks($this->testSession->getActiveId(), $this->object->getId());
         $finishTasks->performFinishTasks($this->processLocker);
+
+        /**
+         * @author Internetlehrer-GmbH
+         * @package Events2Lrs
+         */
+        global $DIC;
+        $DIC->logger()->root()->debug('############## Plugins/Events2Lrs finishTestPass');
+        $DIC->event()->raise(
+            'Modules/Test', #Modules/Test # Services/Tracking
+            'finishTestPass',
+            [
+                'active_id' => $this->testSession->getActiveId(),
+                'pass' => $this->testSession->getPass(),
+                'user_id' => $this->testSession->getUserId(),
+                'ref_id' => $this->object->getRefId()
+            ]
+        );
+        /** @package EOF Events2Lrs */
+
     }
 
     protected function afterTestPassFinishedCmd()

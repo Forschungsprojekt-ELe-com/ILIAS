@@ -178,6 +178,28 @@ class ilChangeEvent
             $aff = $ilDB->manipulate($query);
 
             self::_recordObjStats($obj_id, $time_diff, $read_count_diff);
+
+            /**
+             * @author Internetlehrer GmbH
+             * @package Events2Lrs
+             */
+            $DIC->logger()->root()->debug('############## Plugins/Events2Lrs readCounterChange 1');
+
+            $DIC->event()->raise(
+                'Services/Tracking',
+                'readCounterChange',
+                [
+                    'obj_id' => $obj_id,
+                    'ref_id' => $a_ref_id,
+                    'usr_id' => $usr_id,
+                    'changeEvent' => 'read_event',
+                    'changeProp' => [
+                        'spent_seconds' => $time
+                    ]
+                ]
+            );
+            /** @package EOF Events2Lrs */
+
         } else {
             if ($a_ext_time !== false) {
                 $time = (int) $a_ext_time;
@@ -206,6 +228,29 @@ class ilChangeEvent
             self::$has_accessed[$obj_id][$usr_id] = true;
 
             self::_recordObjStats($obj_id, $time_diff, $read_count_diff);
+
+            /**
+             * @author Internetlehrer GmbH
+             * @package Events2Lrs
+             */
+
+            $DIC->logger()->root()->debug('############## Plugins/Events2Lrs readCounterChange 2');
+
+            $DIC->event()->raise(
+                'Services/Tracking',
+                'readCounterChange',
+                [
+                    'obj_id' => $obj_id,
+                    'ref_id' => $a_ref_id,
+                    'usr_id' => $usr_id,
+                    'changeEvent' => 'read_event',
+                    'changeProp' => [
+                        'spent_seconds' => $time
+                    ]
+                ]
+            );
+            /** @package EOF Events2Lrs */
+
         }
 
         if ($isCatchupWriteEvents) {
