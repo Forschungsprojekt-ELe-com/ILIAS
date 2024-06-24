@@ -67,7 +67,7 @@
                 background-image: url('images/answered.svg');
             }
             &.active {
-                font-weight: bold;
+                font-weight: @il-font-weight-bold;
             }
         }
     }
@@ -90,6 +90,10 @@
     h1.ilc_page_title_PageTitle {
         margin-bottom: @il-test-padding-large-vertical;
     }
+}
+
+#tst_pass_details_overview tr {
+    scroll-margin-top: 30px;
 }
 
 // nested vertical ordering question

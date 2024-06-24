@@ -1,0 +1,58 @@
+# IDEs and Development
+/.env
+/.floo
+/.flooignore
+/.project
+/.idea
+/.cache
+/.buildpath
+/.settings
+/errors
+/extern
+/Services/PHPUnit/config/cfg.phpunit.php
+/nbproject
+
+# General Patterns
+*.bak
+.DS_Store
+*~
+.svn
+*.swp
+*.swo
+
+# Generated Files
+/ilias.ini.php
+/ilias.log
+/db_template_writer.php
+/setup/sql/dbupdate_custom.php
+/install_client.php
+/Services/GlobalScreen/artifacts/global_screen_providers.php
+/Services/Style/System/data/data.php
+/Services/UICore/artifacts/ctrl_structure.php
+/Services/UICore/artifacts/ctrl_plugin_structure.php
+/Services/UICore/artifacts/ctrl_base_classes.php
+/Services/UICore/artifacts/ctrl_security.php
+/Services/Component/artifacts/*
+
+# Directories
+/data
+/Customizing/global
+/Customizing/clients
+virtual-data
+/libs/composer/vendor
+/node_modules/**/.cache
+
+# /dicto
+/dicto/results/*
+!/dicto/results/README.md
+
+# CI
+captainhook.config.json
+captainhook.local.json
+.phpunit.result.cache
+.php-cs-fixer.cache
+phpstan.local.neon
+phpstan-baseline.neon
+
+# File Delivery
+override.php

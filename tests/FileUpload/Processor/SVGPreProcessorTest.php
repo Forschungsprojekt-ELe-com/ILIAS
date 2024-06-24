@@ -30,7 +30,20 @@ use ILIAS\FileUpload\DTO\ProcessingStatus;
  */
 class SVGPreProcessorTest extends TestCase
 {
-    public function maliciousSVGProvider() : array
+    /**
+     * @return SVGBlacklistPreProcessor
+     */
+    protected function getPreProcessor(): SVGBlacklistPreProcessor
+    {
+        return new SVGBlacklistPreProcessor(
+            'The SVG file contains malicious code.',
+            '(script)',
+            '(base64)',
+            ''
+        );
+    }
+
+    public function maliciousSVGProvider(): array
     {
         return [
             [
@@ -77,9 +90,9 @@ aWUpJwpvbmVuZD0nYWxlcnQoIm9uZW5kIiknIHRvPSIjMDBGIiBiZWdpbj0iMXMiIGR1cj0iNXMiIC
     /**
      * @dataProvider maliciousSVGProvider
      */
-    public function testMaliciousSVG(string $malicious_svg, string $type) : void
+    public function testMaliciousSVG(string $malicious_svg, string $type): void
     {
-        $preProcessor = new SVGBlacklistPreProcessor('The SVG file contains malicious code.');
+        $preProcessor = $this->getPreProcessor();
         $stream = Streams::ofString($malicious_svg);
         $metadata = new Metadata('test.svg', 100, 'image/svg+xml');
 
@@ -87,17 +100,17 @@ aWUpJwpvbmVuZD0nYWxlcnQoIm9uZW5kIiknIHRvPSIjMDBGIiBiZWdpbj0iMXMiIGR1cj0iNXMiIC
 
         $this->assertFalse($result->getCode() === ProcessingStatus::OK);
         $this->assertTrue($result->getCode() === ProcessingStatus::DENIED);
-        $this->assertSame('The SVG file contains malicious code. (' . $type . ').', $result->getMessage());
+        $this->assertSame('The SVG file contains malicious code. (' . $type . ')', $result->getMessage());
     }
 
-    public function testSaneSVG() : void
+    public function testSaneSVG(): void
     {
         $svg = '<svg version="1.1" baseProfile="full"
 xmlns="http://www.w3.org/2000/svg">
 <rect width="100" height="100" style="fill:rgb(0,0,255);" />
 </svg>';
 
-        $preProcessor = new SVGBlacklistPreProcessor('The SVG file contains possibily malicious code.');
+        $preProcessor = $this->getPreProcessor();
         $stream = Streams::ofString($svg);
         $metadata = new Metadata('test.svg', 100, 'image/svg+xml');
 
@@ -108,7 +121,7 @@ xmlns="http://www.w3.org/2000/svg">
         $this->assertSame('SVG OK', $result->getMessage());
     }
 
-    public function provideSomeComplexSaneSVG() : array
+    public function provideSomeComplexSaneSVG(): array
     {
         return [
             ['./templates/default/images/bigplay.svg'],
@@ -123,12 +136,12 @@ xmlns="http://www.w3.org/2000/svg">
     /**
      * @dataProvider provideSomeComplexSaneSVG
      */
-    public function testSomeComplexSaneSVG(string $path) : void
+    public function testSomeComplexSaneSVG(string $path): void
     {
         $this->assertTrue(file_exists($path));
         $svg = file_get_contents($path);
 
-        $preProcessor = new SVGBlacklistPreProcessor('The SVG file contains possibily malicious code.');
+        $preProcessor = $this->getPreProcessor();
         $stream = Streams::ofString($svg);
         $metadata = new Metadata('bigplay.svg', 100, 'image/svg+xml');
 

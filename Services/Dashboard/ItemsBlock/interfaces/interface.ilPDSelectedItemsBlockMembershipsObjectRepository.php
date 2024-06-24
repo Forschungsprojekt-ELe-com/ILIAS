@@ -1,4 +1,4 @@
-<?php declare(strict_types=1);
+<?php
 
 /**
  * This file is part of ILIAS, a powerful learning management system
@@ -14,8 +14,9 @@
  * https://www.ilias.de
  * https://github.com/ILIAS-eLearning
  *
- ********************************************************************
- */
+ *********************************************************************/
+
+declare(strict_types=1);
 
 interface ilPDSelectedItemsBlockMembershipsObjectRepository
 {
@@ -25,5 +26,5 @@ interface ilPDSelectedItemsBlockMembershipsObjectRepository
      * @param string $actorLanguageCode
      * @return Generator|ilPDSelectedItemBlockMembershipsDTO[]|Generator<ilPDSelectedItemBlockMembershipsDTO>
      */
-    public function getForUser(ilObjUser $user, array $objTypes, string $actorLanguageCode) : Generator;
+    public function getForUser(ilObjUser $user, array $objTypes, string $actorLanguageCode): Generator;
 }

@@ -37,19 +37,15 @@ final class SVGBlacklistPreProcessor implements PreProcessor
     private const REGEX_SCRIPT = '/<script/m';
     private const REGEX_BASE64 = '/data:.*;base64/m';
     private const SVG = 'svg';
-    /**
-     * @var string
-     */
-    private $rejection_message = 'The SVG file contains possibily malicious code.';
-    /**
-     * @var string
-     */
-    private $ok_message = 'SVG OK';
+    private string $rejection_message = 'The SVG file contains possibily malicious code.';
+    private string $rejection_message_script;
+    private string $rejection_message_base64;
+    private string $rejection_message_elements;
+    private string $ok_message = 'SVG OK';
     /**
      * @see https://developer.mozilla.org/en-US/docs/Web/SVG/Attribute/Events
-     * @var mixed[]
      */
-    private $svg_event_lists = [
+    private array $svg_event_lists = [
         "onbegin",
         "onend",
         "onrepeat",
@@ -124,12 +120,19 @@ final class SVGBlacklistPreProcessor implements PreProcessor
         "onfocusout"
     ];
 
-    public function __construct(?string $rejection_message = null)
-    {
+    public function __construct(
+        ?string $rejection_message = null,
+        ?string $additional_message_script = null,
+        ?string $additional_message_base64 = null,
+        ?string $additional_message_elements = null
+    ) {
         $this->rejection_message = $rejection_message ?? $this->rejection_message;
+        $this->rejection_message_script = $additional_message_script ?? 'contains script tags';
+        $this->rejection_message_base64 = $additional_message_base64 ?? 'contains base64 encoded content';
+        $this->rejection_message_elements = $additional_message_elements ?? 'contains not allowed or unknown elements or attributes';
     }
 
-    private function isSVG(Metadata $metadata) : bool
+    private function isSVG(Metadata $metadata): bool
     {
         return $this->isMimeTypeOrExtension(
             $metadata,
@@ -138,7 +141,7 @@ final class SVGBlacklistPreProcessor implements PreProcessor
         );
     }
 
-    public function process(FileStream $stream, Metadata $metadata) : ProcessingStatus
+    public function process(FileStream $stream, Metadata $metadata): ProcessingStatus
     {
         if ($this->isSVG($metadata) && !$this->checkStream($stream)) {
             return new ProcessingStatus(ProcessingStatus::DENIED, $this->rejection_message);
@@ -146,7 +149,7 @@ final class SVGBlacklistPreProcessor implements PreProcessor
         return new ProcessingStatus(ProcessingStatus::OK, $this->ok_message);
     }
 
-    public function getDomDocument(string $raw_svg_content) : ?\DOMDocument
+    public function getDomDocument(string $raw_svg_content): ?\DOMDocument
     {
         $dom = new \DOMDocument();
         try {
@@ -161,7 +164,7 @@ final class SVGBlacklistPreProcessor implements PreProcessor
         return $dom;
     }
 
-    protected function checkStream(FileStream $stream) : bool
+    protected function checkStream(FileStream $stream): bool
     {
         $raw_svg_content = (string) $stream;
         if (false === $raw_svg_content) {
@@ -170,6 +173,7 @@ final class SVGBlacklistPreProcessor implements PreProcessor
 
         // Check for script tags directly
         if ($this->hasContentScriptTag($raw_svg_content)) {
+            $this->rejection_message = $this->rejection_message;
             return false;
         }
 
@@ -181,7 +185,7 @@ final class SVGBlacklistPreProcessor implements PreProcessor
 
         // loop through all attributes of elements recursively and check for event attributes
         $looper = $this->getDOMAttributesLooper();
-        $prohibited_attributes = function (string $name) : bool {
+        $prohibited_attributes = function (string $name): bool {
             return in_array(strtolower($name), $this->svg_event_lists, true);
         };
         if ($looper($dom, $prohibited_attributes) === false) {
@@ -191,33 +195,31 @@ final class SVGBlacklistPreProcessor implements PreProcessor
         return true;
     }
 
-    private function hasContentScriptTag(string $raw_svg_content) : bool
+    private function hasContentScriptTag(string $raw_svg_content): bool
     {
         // Check for Base64 encoded Content
         if (preg_match(self::REGEX_BASE64, $raw_svg_content)) {
-            $this->rejection_message = $this->rejection_message
-                . ' (base64).';
+            $this->rejection_message .= ' ' . $this->rejection_message_base64;
             return true;
         }
 
         // Check for script tags directly
         if (preg_match(self::REGEX_SCRIPT, $raw_svg_content)) {
-            $this->rejection_message = $this->rejection_message
-                . ' (script).';
+            $this->rejection_message .= ' ' . $this->rejection_message_script;
             return true;
         }
 
         return false;
     }
 
-    protected function getDOMAttributesLooper() : \Closure
+    protected function getDOMAttributesLooper(): \Closure
     {
-        return function (\DOMDocument $dom, \Closure $closure) : bool {
-            $attributes_looper = function (\DOMNode $node, \Closure $closure) use (&$attributes_looper) : bool {
+        return function (\DOMDocument $dom, \Closure $closure): bool {
+            $attributes_looper = function (\DOMNode $node, \Closure $closure) use (&$attributes_looper): bool {
                 foreach ($node->attributes as $attribute) {
                     if ($closure($attribute->name)) {
-                        $this->rejection_message = sprintf(
-                            'The SVG file contains malicious code. (%s).',
+                        $this->rejection_message .= sprintf(
+                            $this->rejection_message_elements . ' (%s)',
                             $attribute->name
                         );
                         return false;
@@ -225,7 +227,9 @@ final class SVGBlacklistPreProcessor implements PreProcessor
                 }
                 foreach ($node->childNodes as $child) {
                     if ($child instanceof \DOMElement) {
-                        $attributes_looper($child, $closure);
+                        if(!$attributes_looper($child, $closure)) {
+                            return false;
+                        }
                     }
                 }
                 return true;

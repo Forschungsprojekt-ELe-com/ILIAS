@@ -30,12 +30,6 @@
 			<parent id="wfld">wfld</parent>
 		</object>
 	</objects>
-	<events>
-		<event type="raise" id="finishTestPass" />
-		<event type="raise" id="resumeTestPass" />
-		<event type="raise" id="startTestPass" />
-		<event type="raise" id="suspendTestPass" />
-	</events>
 	<crons>
 		<cron id="finish_unfinished_passes" class="ilCronFinishUnfinishedTestPasses" />
 	</crons>
@@ -47,7 +41,7 @@
 		<pdfpurpose name="PrintViewOfQuestions" preferred="PhantomJS" />
 		<pdfpurpose name="UserResult" preferred="PhantomJS" />
 	</pdfpurposes>
-        <web_access_checker>
-          <secure_path path="assessment" checking-class="ilObjTestAccess" in-sec-folder='0'/>
-        </web_access_checker>
+	<web_access_checker>
+		<secure_path path="assessment" checking-class="ilObjTestAccess" in-sec-folder='0'/>
+	</web_access_checker>
 </module>

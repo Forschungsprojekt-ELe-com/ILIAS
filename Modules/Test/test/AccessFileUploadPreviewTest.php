@@ -75,15 +75,15 @@ class AccessFileUploadPreviewTest extends TestCase
 
         $ref_called = 0;
         $type_called = 0;
-        $references_of = $this->expectCall(383, ['987'], $ref_called);
+        $references_of = $this->expectCall(383, [987], $ref_called);
         $type_of = $this->expectCall(987, $type, $type_called);
 
         $database->expects(self::once())->method('queryF')->with('SELECT obj_fi FROM qpl_questions WHERE question_id = %s', [ilDBConstants::T_INTEGER], [383])->willReturn($statement);
         $database->expects(self::once())->method('fetchAssoc')->with($statement)->willReturn(['obj_fi' => '383']);
 
         $incident->expects(self::once())->method('any')->willReturnCallback(function (callable $call_me, array $ref_ids) : bool {
-            $this->assertEquals(['987'], $ref_ids);
-            return $call_me('987');
+            $this->assertEquals([987], $ref_ids);
+            return $call_me(987);
         });
 
         if (null === $requires_permission) {

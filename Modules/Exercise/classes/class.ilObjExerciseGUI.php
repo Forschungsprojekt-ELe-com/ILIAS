@@ -1,70 +1,55 @@
 <?php
 
-/* Copyright (c) 1998-2010 ILIAS open source, Extended GPL, see docs/LICENSE */
+/**
+ * This file is part of ILIAS, a powerful learning management system
+ * published by ILIAS open source e-Learning e.V.
+ *
+ * ILIAS is licensed with the GPL-3.0,
+ * see https://www.gnu.org/licenses/gpl-3.0.en.html
+ * You should have received a copy of said license along with the
+ * source code, too.
+ *
+ * If this is not the case or you just want to try ILIAS, you'll find
+ * us at:
+ * https://www.ilias.de
+ * https://github.com/ILIAS-eLearning
+ *
+ *********************************************************************/
+
+use ILIAS\Exercise\InternalService;
+use ILIAS\Exercise;
 
 /**
-* Class ilObjExerciseGUI
-*
-* @author Stefan Meyer <smeyer@databay.de>
-* @author Alex Killing <alex.killing@gmx.de>
-* @author Michael Jansen <mjansen@databay.de>
-* $Id$
-*
-* @ilCtrl_Calls ilObjExerciseGUI: ilPermissionGUI, ilLearningProgressGUI, ilInfoScreenGUI
-* @ilCtrl_Calls ilObjExerciseGUI: ilObjectCopyGUI, ilExportGUI
-* @ilCtrl_Calls ilObjExerciseGUI: ilCommonActionDispatcherGUI, ilCertificateGUI
-* @ilCtrl_Calls ilObjExerciseGUI: ilExAssignmentEditorGUI, ilExSubmissionGUI
-* @ilCtrl_Calls ilObjExerciseGUI: ilExerciseManagementGUI, ilExcCriteriaCatalogueGUI, ilObjectMetaDataGUI, ilPortfolioExerciseGUI, ilExcRandomAssignmentGUI
-*
-* @ingroup ModulesExercise
-*/
+ * @author       Stefan Meyer <smeyer@databay.de>
+ * @author       Alexander Killing <killing@leifos.de>
+ * @author       Michael Jansen <mjansen@databay.de>
+ * @ilCtrl_Calls ilObjExerciseGUI: ilPermissionGUI, ilLearningProgressGUI, ilInfoScreenGUI
+ * @ilCtrl_Calls ilObjExerciseGUI: ilObjectCopyGUI, ilExportGUI
+ * @ilCtrl_Calls ilObjExerciseGUI: ilCommonActionDispatcherGUI, ilCertificateGUI
+ * @ilCtrl_Calls ilObjExerciseGUI: ilExAssignmentEditorGUI, ilExSubmissionGUI
+ * @ilCtrl_Calls ilObjExerciseGUI: ilExerciseManagementGUI, ilExcCriteriaCatalogueGUI, ilObjectMetaDataGUI, ilPortfolioExerciseGUI, ilExcRandomAssignmentGUI
+ */
 class ilObjExerciseGUI extends ilObjectGUI
 {
-    /**
-     * @var
-     */
-    private $certificateDownloadValidator;
+    private ilCertificateDownloadValidator $certificateDownloadValidator;
+    protected ilTabsGUI $tabs;
+    protected ilHelpGUI $help;
+    protected ?ilExAssignment $ass = null;
+    protected InternalService $service;
+    protected Exercise\GUIRequest $exercise_request;
+    protected Exercise\InternalGUIService $exercise_ui;
+    protected ?int $requested_ass_id;
+    protected int $lp_user_id;
+    protected string $requested_sort_order;
+    protected string $requested_sort_by;
+    protected int $requested_offset;
+    protected int $requested_ref_id;
+    protected int $requested_ass_id_goto;
 
     /**
-     * @var ilTabsGUI
+     * @throws ilExerciseException
      */
-    protected $tabs;
-
-    /**
-     * @var ilHelpGUI
-     */
-    protected $help;
-
-    /**
-     * @var ilExAssignment
-     */
-    protected $ass = null;
-
-    /**
-     * @var ilExerciseInternalService
-     */
-    protected $service;
-
-    /**
-     * @var ilExerciseUIRequest
-     */
-    protected $exercise_request;
-
-    /**
-     * @var ilExerciseUI
-     */
-    protected $exercise_ui;
-
-    /**
-     * @var int
-     */
-    protected $requested_ass_id;
-
-    /**
-    * Constructor
-    * @access public
-    */
-    public function __construct($a_data, $a_id, $a_call_by_reference, $a_prepare_output = true)
+    public function __construct($a_data, int $a_id, bool $a_call_by_reference)
     {
         global $DIC;
 
@@ -79,67 +64,82 @@ class ilObjExerciseGUI extends ilObjectGUI
         $lng = $DIC->language();
 
         $this->lng->loadLanguageModule('cert');
-        
+
         $this->type = "exc";
         parent::__construct($a_data, $a_id, $a_call_by_reference, false);
-        
+
         $lng->loadLanguageModule("exercise");
         $lng->loadLanguageModule("exc");
         $this->ctrl->saveParameter($this, "ass_id");
 
-        $this->service = $DIC->exercise()->internal()->service();
-        $this->exercise_request = $DIC->exercise()->internal()->request();
-        $this->exercise_ui = $DIC->exercise()->internal()->ui();
-        $this->requested_ass_id = $this->exercise_request->getRequestedAssId();
+        $this->service = $DIC->exercise()->internal();
+        $this->exercise_request = $DIC->exercise()->internal()->gui()->request();
+        $this->exercise_ui = $DIC->exercise()->internal()->gui();
+        $this->requested_ass_id = $this->exercise_request->getAssId();
 
-        if ($this->requested_ass_id > 0 && is_object($this->object) && ilExAssignment::lookupExerciseId($this->requested_ass_id) == $this->object->getId()) {
-            $this->ass = $this->exercise_request->getRequestedAssignment();
+        if ($this->requested_ass_id > 0 && is_object($this->object) && ilExAssignment::lookupExerciseId(
+            $this->requested_ass_id
+        ) === $this->object->getId()) {
+            $this->ass = $this->exercise_request->getAssignment();
         } elseif ($this->requested_ass_id > 0) {
             throw new ilExerciseException("Assignment ID does not match Exercise.");
         }
 
+        $this->lp_user_id = ($this->exercise_request->getUserId() > 0)
+            ?: $this->user->getId();
+        $this->requested_sort_order = $this->exercise_request->getSortOrder();
+        $this->requested_sort_by = $this->exercise_request->getSortBy();
+        $this->requested_offset = $this->exercise_request->getOffset();
+        $this->requested_ref_id = $this->exercise_request->getRefId();
+        $this->requested_ass_id_goto = $this->exercise_request->getAssIdGoto();
+
         $this->certificateDownloadValidator = new ilCertificateDownloadValidator();
     }
 
-    public function executeCommand()
+    /**
+     * @throws ilException
+     * @throws ilObjectException
+     */
+    public function executeCommand(): void
     {
-        $ilUser = $this->user;
         $ilCtrl = $this->ctrl;
         $ilTabs = $this->tabs;
-        $lng = $this->lng;
-  
+
         $next_class = $this->ctrl->getNextClass($this);
         $cmd = $this->ctrl->getCmd();
         $this->prepareOutput();
 
+        /** @var ilObjExercise $exc */
+        $exc = $this->object;
+
         if (!$this->getCreationMode() && isset($this->object)) {
             $this->tpl->setPermanentLink("exc", $this->object->getRefId());
         }
-  
+
         //echo "-".$next_class."-".$cmd."-"; exit;
         switch ($next_class) {
             case "ilinfoscreengui":
                 $ilTabs->activateTab("info");
-                $this->infoScreen();	// forwards command
+                $this->infoScreen();    // forwards command
                 break;
 
             case 'ilpermissiongui':
                 $ilTabs->activateTab("permissions");
                 $perm_gui = new ilPermissionGUI($this);
-                $ret = &$this->ctrl->forwardCommand($perm_gui);
-            break;
-    
+                $this->ctrl->forwardCommand($perm_gui);
+                break;
+
             case "illearningprogressgui":
                 $ilTabs->activateTab("learning_progress");
                 $new_gui = new ilLearningProgressGUI(
-                    ilLearningProgressGUI::LP_CONTEXT_REPOSITORY,
+                    ilLearningProgressBaseGUI::LP_CONTEXT_REPOSITORY,
                     $this->object->getRefId(),
-                    $_GET['user_id'] ? $_GET['user_id'] : $ilUser->getId()
+                    $this->lp_user_id
                 );
                 $this->ctrl->forwardCommand($new_gui);
                 $this->tabs_gui->setTabActive('learning_progress');
-            break;
-            
+                break;
+
             case 'ilobjectcopygui':
                 $ilCtrl->saveParameter($this, 'new_type');
                 $ilCtrl->setReturnByClass(get_class($this), 'create');
@@ -153,15 +153,14 @@ class ilObjExerciseGUI extends ilObjectGUI
                 $ilTabs->activateTab("export");
                 $exp_gui = new ilExportGUI($this);
                 $exp_gui->addFormat("xml");
-                $ret = $this->ctrl->forwardCommand($exp_gui);
-//				$this->tpl->show();
+                $this->ctrl->forwardCommand($exp_gui);
                 break;
-            
+
             case "ilcommonactiondispatchergui":
                 $gui = ilCommonActionDispatcherGUI::getInstanceFromAjaxCall();
                 $this->ctrl->forwardCommand($gui);
                 break;
-            
+
             case "ilcertificategui":
                 $this->setSettingsSubTabs();
                 $this->tabs_gui->activateTab("settings");
@@ -172,18 +171,22 @@ class ilObjExerciseGUI extends ilObjectGUI
 
                 $this->ctrl->forwardCommand($output_gui);
                 break;
-            
+
             case "ilexassignmenteditorgui":
                 $this->checkPermission("write");
                 $ilTabs->activateTab("content");
                 $this->addContentSubTabs("list_assignments");
-                $ass_gui = new ilExAssignmentEditorGUI($this->object->getId(), $this->object->isCompletionBySubmissionEnabled(), $this->ass);
+                $ass_gui = new ilExAssignmentEditorGUI(
+                    $this->object->getId(),
+                    $this->object->isCompletionBySubmissionEnabled(),
+                    $this->ass
+                );
                 $this->ctrl->forwardCommand($ass_gui);
                 break;
-            
+
             case "ilexsubmissiongui":
                 $this->checkPermission("read");
-                $random_manager = $this->service->getRandomAssignmentManager($this->object);
+                $random_manager = $this->service->domain()->assignment()->randomAssignments($exc);
                 if (!$random_manager->isAssignmentVisible($this->requested_ass_id, $this->user->getId())) {
                     return;
                 }
@@ -193,7 +196,7 @@ class ilObjExerciseGUI extends ilObjectGUI
                 $sub_gui = $this->exercise_ui->getSubmissionGUI();
                 $this->ctrl->forwardCommand($sub_gui);
                 break;
-            
+
             case "ilexercisemanagementgui":
                 // rbac or position access
                 if ($GLOBALS['DIC']->access()->checkRbacOrPositionPermissionAccess(
@@ -205,25 +208,25 @@ class ilObjExerciseGUI extends ilObjectGUI
                     $mgmt_gui = new ilExerciseManagementGUI($this->getService(), $this->ass);
                     $this->ctrl->forwardCommand($mgmt_gui);
                 } else {
-                    $this->checkPermission("edit_submissions_grades");	// throw error by standard procedure
+                    $this->checkPermission("edit_submissions_grades");    // throw error by standard procedure
                 }
                 break;
-            
+
             case "ilexccriteriacataloguegui":
                 $this->checkPermission("write");
                 $ilTabs->activateTab("settings");
                 $this->setSettingsSubTabs();
                 $ilTabs->activateSubTab("crit");
-                $crit_gui = new ilExcCriteriaCatalogueGUI($this->object);
+                $crit_gui = new ilExcCriteriaCatalogueGUI($exc);
                 $this->ctrl->forwardCommand($crit_gui);
                 break;
 
-
+            /* seems to be unused, at least initSumbission is not known here...
             case "ilportfolioexercisegui":
                 $this->ctrl->saveParameter($this, array("part_id"));
                 $gui = new ilPortfolioExerciseGUI($this->object, $this->initSubmission());
                 $ilCtrl->forwardCommand($gui);
-                break;
+                break; */
 
             case "ilexcrandomassignmentgui":
                 $gui = $this->exercise_ui->getRandomAssignmentGUI();
@@ -236,60 +239,56 @@ class ilObjExerciseGUI extends ilObjectGUI
                 $md_gui = new ilObjectMetaDataGUI($this->object);
                 $this->ctrl->forwardCommand($md_gui);
                 break;
-                
+
             default:
                 if (!$cmd) {
                     $cmd = "infoScreen";
                 }
-    
+
                 $cmd .= "Object";
-    
                 $this->$cmd();
-    
-            break;
+
+                break;
         }
-        
+
         $this->addHeaderAction();
-  
-        return true;
     }
 
-    public function viewObject()
+    public function viewObject(): void
     {
         $this->infoScreenObject();
     }
-    
-    protected function afterSave(ilObject $a_new_object)
+
+    protected function afterSave(ilObject $a_new_object): void
     {
         $ilCtrl = $this->ctrl;
-        
+
         $a_new_object->saveData();
-        
-        ilUtil::sendSuccess($this->lng->txt("exc_added"), true);
-        
+
+        $this->tpl->setOnScreenMessage('success', $this->lng->txt("exc_added"), true);
+
         $ilCtrl->setParameterByClass("ilExAssignmentEditorGUI", "ref_id", $a_new_object->getRefId());
         $ilCtrl->redirectByClass("ilExAssignmentEditorGUI", "addAssignment");
     }
 
-    protected function listAssignmentsObject()
+    protected function listAssignmentsObject(): void
     {
         $ilCtrl = $this->ctrl;
-        
+
         $this->checkPermissionBool("write");
-        
+
         // #16587
         $ilCtrl->redirectByClass("ilExAssignmentEditorGUI", "listAssignments");
     }
-    
-    /**
-    * Init properties form.
-    */
-    protected function initEditCustomForm(ilPropertyFormGUI $a_form)
+
+    protected function initEditCustomForm(ilPropertyFormGUI $a_form): void
     {
         $obj_service = $this->getObjectService();
-
         $service = $this->getService();
-        $random_manager = $service->getRandomAssignmentManager($this->object);
+        /** @var ilObjExercise $exc */
+        $exc = $this->object;
+
+        $random_manager = $service->domain()->assignment()->randomAssignments($exc);
 
         $a_form->setTitle($this->lng->txt("exc_edit_exercise"));
 
@@ -306,7 +305,7 @@ class ilObjExerciseGUI extends ilObjectGUI
 
         // pass mode
         $radg = new ilRadioGroupInputGUI($this->lng->txt("exc_pass_mode"), "pass_mode");
-    
+
         $op1 = new ilRadioOption(
             $this->lng->txt("exc_pass_all"),
             ilObjExercise::PASS_MODE_ALL,
@@ -326,13 +325,17 @@ class ilObjExerciseGUI extends ilObjectGUI
         );
         if (!$random_manager->canBeActivated() && $this->object->getPassMode() != ilObjExercise::PASS_MODE_RANDOM) {
             $op3->setDisabled(true);
-            $op3->setInfo($this->lng->txt("exc_random_selection_not_changeable_info") . " " .
-                    implode(" ", $random_manager->getDeniedActivationReasons()));
+            $op3->setInfo(
+                $this->lng->txt("exc_random_selection_not_changeable_info") . " " .
+                implode(" ", $random_manager->getDeniedActivationReasons())
+            );
         }
         if ($this->object->getPassMode() == ilObjExercise::PASS_MODE_RANDOM && !$random_manager->canBeDeactivated()) {
             $radg->setDisabled(true);
-            $radg->setInfo($this->lng->txt("exc_pass_mode_not_changeable_info") . " " .
-                    implode(" ", $random_manager->getDeniedDeactivationReasons()));
+            $radg->setInfo(
+                $this->lng->txt("exc_pass_mode_not_changeable_info") . " " .
+                implode(" ", $random_manager->getDeniedDeactivationReasons())
+            );
         }
         // minimum number of assignments to pass
         $rn = new ilNumberInputGUI($this->lng->txt("exc_nr_random_mand"), "nr_random_mand");
@@ -360,10 +363,17 @@ class ilObjExerciseGUI extends ilObjectGUI
         $a_form->addItem($radg);
 
         // completion by submission
-        $subcompl = new ilRadioGroupInputGUI($this->lng->txt("exc_passed_status_determination"), "completion_by_submission");
+        $subcompl = new ilRadioGroupInputGUI(
+            $this->lng->txt("exc_passed_status_determination"),
+            "completion_by_submission"
+        );
         $op1 = new ilRadioOption($this->lng->txt("exc_completion_by_tutor"), 0, "");
         $subcompl->addOption($op1);
-        $op2 = new ilRadioOption($this->lng->txt("exc_completion_by_submission"), 1, $this->lng->txt("exc_completion_by_submission_info"));
+        $op2 = new ilRadioOption(
+            $this->lng->txt("exc_completion_by_submission"),
+            1,
+            $this->lng->txt("exc_completion_by_submission_info")
+        );
         $subcompl->addOption($op2);
         $a_form->addItem($subcompl);
 
@@ -380,7 +390,7 @@ class ilObjExerciseGUI extends ilObjectGUI
         $cb = new ilCheckboxInputGUI($this->lng->txt("exc_show_submissions"), "show_submissions");
         $cb->setInfo($this->lng->txt("exc_show_submissions_info"));
         $a_form->addItem($cb);
-        
+
         $section = new ilFormSectionHeaderGUI();
         $section->setTitle($this->lng->txt('exc_notification'));
         $a_form->addItem($section);
@@ -389,24 +399,32 @@ class ilObjExerciseGUI extends ilObjectGUI
         $cbox = new ilCheckboxInputGUI($this->lng->txt("exc_submission_notification"), "notification");
         $cbox->setInfo($this->lng->txt("exc_submission_notification_info"));
         $a_form->addItem($cbox);
-        
-        
+
         // feedback settings
-        
+
         $section = new ilFormSectionHeaderGUI();
         $section->setTitle($this->lng->txt('exc_feedback'));
         $a_form->addItem($section);
-        
+
         $fdb = new ilCheckboxGroupInputGUI($this->lng->txt("exc_settings_feedback"), "tfeedback");
         $a_form->addItem($fdb);
-        
-        $option = new ilCheckboxOption($this->lng->txt("exc_settings_feedback_mail"), ilObjExercise::TUTOR_FEEDBACK_MAIL);
+
+        $option = new ilCheckboxOption(
+            $this->lng->txt("exc_settings_feedback_mail"),
+            ilObjExercise::TUTOR_FEEDBACK_MAIL
+        );
         $option->setInfo($this->lng->txt("exc_settings_feedback_mail_info"));
         $fdb->addOption($option);
-        $option = new ilCheckboxOption($this->lng->txt("exc_settings_feedback_file"), ilObjExercise::TUTOR_FEEDBACK_FILE);
+        $option = new ilCheckboxOption(
+            $this->lng->txt("exc_settings_feedback_file"),
+            ilObjExercise::TUTOR_FEEDBACK_FILE
+        );
         $option->setInfo($this->lng->txt("exc_settings_feedback_file_info"));
         $fdb->addOption($option);
-        $option = new ilCheckboxOption($this->lng->txt("exc_settings_feedback_text"), ilObjExercise::TUTOR_FEEDBACK_TEXT);
+        $option = new ilCheckboxOption(
+            $this->lng->txt("exc_settings_feedback_text"),
+            ilObjExercise::TUTOR_FEEDBACK_TEXT
+        );
         $option->setInfo($this->lng->txt("exc_settings_feedback_text_info"));
         $fdb->addOption($option);
 
@@ -430,11 +448,8 @@ class ilObjExerciseGUI extends ilObjectGUI
             $features
         );
     }
-    
-    /**
-    * Get values for properties form
-    */
-    protected function getEditFormCustomValues(array &$a_values)
+
+    protected function getEditFormCustomValues(array &$a_values): void
     {
         $ilUser = $this->user;
 
@@ -446,15 +461,15 @@ class ilObjExerciseGUI extends ilObjectGUI
         }
 
         $a_values["nr_random_mand"] = $this->object->getNrMandatoryRandom();
-        
+
         $a_values["notification"] = ilNotification::hasNotification(
             ilNotification::TYPE_EXERCISE_SUBMISSION,
             $ilUser->getId(),
             $this->object->getId()
         );
-                
+
         $a_values['completion_by_submission'] = (int) $this->object->isCompletionBySubmissionEnabled();
-        
+
         $tfeedback = array();
         if ($this->object->hasTutorFeedbackMail()) {
             $tfeedback[] = ilObjExercise::TUTOR_FEEDBACK_MAIL;
@@ -468,8 +483,10 @@ class ilObjExerciseGUI extends ilObjectGUI
         $a_values['tfeedback'] = $tfeedback;
 
         // orgunit position setting enabled
-        $a_values['obj_orgunit_positions'] = (bool) ilOrgUnitGlobalSettings::getInstance()
-            ->isPositionAccessActiveForObject($this->object->getId());
+        $a_values['obj_orgunit_positions'] = ilOrgUnitGlobalSettings::getInstance()
+                                                                    ->isPositionAccessActiveForObject(
+                                                                        $this->object->getId()
+                                                                    );
 
         $a_values['cont_custom_md'] = ilContainer::_lookupContainerSetting(
             $this->object->getId(),
@@ -478,7 +495,7 @@ class ilObjExerciseGUI extends ilObjectGUI
         );
     }
 
-    protected function updateCustom(ilPropertyFormGUI $a_form)
+    protected function updateCustom(ilPropertyFormGUI $a_form): void
     {
         $obj_service = $this->getObjectService();
 
@@ -492,13 +509,15 @@ class ilObjExerciseGUI extends ilObjectGUI
             $this->object->setNrMandatoryRandom($a_form->getInput("nr_random_mand"));
         }
 
-        $this->object->setCompletionBySubmission($a_form->getInput('completion_by_submission') == 1 ? true : false);
-        
+        $this->object->setCompletionBySubmission($a_form->getInput('completion_by_submission') == 1);
+
         $feedback = $a_form->getInput("tfeedback");
-        $this->object->setTutorFeedback(is_array($feedback)
-            ? array_sum($feedback)
-            : null);
-        
+        $this->object->setTutorFeedback(
+            is_array($feedback)
+                ? array_sum($feedback)
+                : null
+        );
+
         ilNotification::setNotification(
             ilNotification::TYPE_EXERCISE_SUBMISSION,
             $ilUser->getId(),
@@ -518,18 +537,13 @@ class ilObjExerciseGUI extends ilObjectGUI
             )
         );
     }
-  
-    /**
-     * Add subtabs of content view
-     *
-     * @param	object		$tabs_gui		ilTabsGUI object
-     */
-    public function addContentSubTabs($a_activate)
+
+    public function addContentSubTabs(string $a_activate): void
     {
         $ilTabs = $this->tabs;
         $lng = $this->lng;
         $ilCtrl = $this->ctrl;
-        
+
         $ilTabs->addSubTab(
             "content",
             $lng->txt("view"),
@@ -545,27 +559,22 @@ class ilObjExerciseGUI extends ilObjectGUI
         $ilTabs->activateSubTab($a_activate);
     }
 
-    /**
-    * adds tabs to tab gui object
-    *
-    * @param	object		$tabs_gui		ilTabsGUI object
-    */
-    public function getTabs()
+    protected function getTabs(): void
     {
         $lng = $this->lng;
         $ilHelp = $this->help;
-  
+        /** @var $ctrl ilCtrl */
+        $ctrl = $this->ctrl;
         $ilHelp->setScreenIdComponent("exc");
-        
+
         if ($this->checkPermissionBool("read")) {
             $this->tabs_gui->addTab(
                 "content",
                 $lng->txt("exc_assignments"),
-                $this->ctrl->getLinkTarget($this, "showOverview")
+                $ctrl->getLinkTarget($this, "showOverview")
             );
         }
 
-        $next_class = strtolower($this->ctrl->getNextClass());
         if ($this->checkPermissionBool("visible") || $this->checkPermissionBool("read")) {
             $this->tabs_gui->addTab(
                 "info",
@@ -579,7 +588,7 @@ class ilObjExerciseGUI extends ilObjectGUI
             /*$tabs_gui->addTab("assignments",
                 $lng->txt("exc_edit_assignments"),
                 $this->ctrl->getLinkTarget($this, 'listAssignments'));*/
-            
+
             $this->tabs_gui->addTab(
                 "settings",
                 $lng->txt("settings"),
@@ -599,16 +608,13 @@ class ilObjExerciseGUI extends ilObjectGUI
         }
 
         // learning progress
-        $save_sort_order = $_GET["sort_order"];		// hack, because exercise sort parameters
-        $save_sort_by = $_GET["sort_by"];			// must not be forwarded to learning progress
-        $save_offset = $_GET["offset"];
-        $_GET["offset"] = $_GET["sort_by"] = $_GET["sort_order"] = "";
-        
+        $ctrl->clearParametersByClass('illearningprogressgui');
+
         if (ilLearningProgressAccess::checkAccess($this->object->getRefId())) {
             $this->tabs_gui->addTab(
                 'learning_progress',
                 $lng->txt('learning_progress'),
-                $this->ctrl->getLinkTargetByClass(array('ilobjexercisegui','illearningprogressgui'), '')
+                $this->ctrl->getLinkTargetByClass(array('ilobjexercisegui', 'illearningprogressgui'), '')
             );
         }
 
@@ -626,10 +632,6 @@ class ilObjExerciseGUI extends ilObjectGUI
             }
         }
 
-        $_GET["sort_order"] = $save_sort_order;		// hack, part ii
-        $_GET["sort_by"] = $save_sort_by;
-        $_GET["offset"] = $save_offset;
-
         // export
         if ($this->checkPermissionBool("write")) {
             $this->tabs_gui->addTab(
@@ -639,48 +641,40 @@ class ilObjExerciseGUI extends ilObjectGUI
             );
         }
 
-
         // permissions
         if ($this->checkPermissionBool("edit_permission")) {
             $this->tabs_gui->addTab(
                 'permissions',
                 $lng->txt("perm_settings"),
-                $this->ctrl->getLinkTargetByClass(array(get_class($this),'ilpermissiongui'), "perm")
+                $this->ctrl->getLinkTargetByClass(array(get_class($this), 'ilpermissiongui'), "perm")
             );
         }
     }
-    
+
     /**
-    * this one is called from the info button in the repository
-    * not very nice to set cmdClass/Cmd manually, if everything
-    * works through ilCtrl in the future this may be changed
-    */
-    public function infoScreenObject()
+     * @throws ilObjectException
+     */
+    public function infoScreenObject(): void
     {
         $this->ctrl->setCmd("showSummary");
         $this->ctrl->setCmdClass("ilinfoscreengui");
         $this->infoScreen();
     }
 
-    /**
-     * Get service
-     *
-     * @return ilExerciseInternalService
-     */
-    protected function getService()
+    protected function getService(): InternalService
     {
         return $this->service;
     }
 
     /**
-    * show information screen
-    */
-    public function infoScreen()
+     * @throws ilObjectException
+     */
+    public function infoScreen(): void
     {
         $ilUser = $this->user;
         $ilTabs = $this->tabs;
         $lng = $this->lng;
-        
+
         $ilTabs->activateTab("info");
 
         /** @var ilObjExercise $exc */
@@ -691,9 +685,9 @@ class ilObjExerciseGUI extends ilObjectGUI
         }
 
         $info = new ilInfoScreenGUI($this);
-        
+
         $info->enablePrivateNotes();
-        
+
         $info->enableNews();
         if ($this->checkPermissionBool("write")) {
             $info->enableNewsEditing();
@@ -796,26 +790,26 @@ class ilObjExerciseGUI extends ilObjectGUI
                 }
             }
         }
-        
+
         // forward the command
         $this->ctrl->forwardCommand($info);
     }
-    
-    public function editObject()
+
+    public function editObject(): void
     {
         $this->setSettingsSubTabs();
         $this->tabs_gui->activateSubTab("edit");
-        return parent::editObject();
+        parent::editObject();
     }
-    
-    protected function setSettingsSubTabs()
+
+    protected function setSettingsSubTabs(): void
     {
         $this->tabs_gui->addSubTab(
             "edit",
             $this->lng->txt("general_settings"),
             $this->ctrl->getLinkTarget($this, "edit")
         );
-        
+
         $this->tabs_gui->addSubTab(
             "crit",
             $this->lng->txt("exc_criteria_catalogues"),
@@ -823,7 +817,7 @@ class ilObjExerciseGUI extends ilObjectGUI
         );
 
         $validator = new ilCertificateActiveValidator();
-        if (true === $validator->validate()) {
+        if ($validator->validate()) {
             $this->tabs_gui->addSubTab(
                 "certificate",
                 $this->lng->txt("certificate"),
@@ -832,39 +826,34 @@ class ilObjExerciseGUI extends ilObjectGUI
         }
     }
 
-    /**
-    * redirect script
-    *
-    * @param	string		$a_target
-    */
-    public static function _goto($a_target, $a_raw)
-    {
+    public static function _goto(
+        string $a_target,
+        string $a_raw
+    ): void {
         global $DIC;
 
-        $ilErr = $DIC["ilErr"];
+        $main_tpl = $DIC->ui()->mainTemplate();
+
+        $request = $DIC->exercise()->internal()->gui()->request();
+        $ass_id = $request->getAssId();
+
         $lng = $DIC->language();
         $ilAccess = $DIC->access();
         $ilCtrl = $DIC->ctrl();
 
         //we don't have baseClass here...
         $ilCtrl->setTargetScript("ilias.php");
-        $ilCtrl->initBaseClass("ilRepositoryGUI");
 
         //ilExerciseMailNotification has links to:
         // "Assignments", "Submission and Grades" and Downnoad the NEW files if the assignment type is "File Upload".
-        $ass_id = $_GET['ass_id'];
         $parts = explode("_", $a_raw);
+        $action = null;
+        $member = null;
         if (!$ass_id) {
             $ass_id = null;
-            $action = null;
 
             switch (end($parts)) {
                 case "download":
-                    $action = $parts[3];
-                    $member = $parts[2];
-                    $ass_id = $parts[1];
-                    break;
-
                 case "setdownload":
                     $action = $parts[3];
                     $member = $parts[2];
@@ -889,7 +878,10 @@ class ilObjExerciseGUI extends ilObjectGUI
 
             switch ($action) {
                 case "grades":
-                    $ilCtrl->redirectByClass(array("ilRepositoryGUI", "ilExerciseHandlerGUI", "ilObjExerciseGUI", "ilExerciseManagementGUI"), "members");
+                    $ilCtrl->redirectByClass(
+                        array("ilExerciseHandlerGUI", "ilObjExerciseGUI", "ilExerciseManagementGUI"),
+                        "members"
+                    );
                     break;
 
                 /*case "download":
@@ -899,22 +891,31 @@ class ilObjExerciseGUI extends ilObjectGUI
 
                 case "setdownload":
                     $ilCtrl->setParameterByClass("ilExerciseHandlerGUI", "member_id", $member);
-                    $ilCtrl->redirectByClass(array("ilRepositoryGUI", "ilExerciseHandlerGUI", "ilObjExerciseGUI", "ilExerciseManagementGUI"), "waitingDownload");
+                    $ilCtrl->redirectByClass(
+                        array("ilExerciseHandlerGUI", "ilObjExerciseGUI", "ilExerciseManagementGUI"),
+                        "waitingDownload"
+                    );
                     break;
 
                 default:
-                    if ($parts[1] != "") {
+                    if (($parts[1] ?? "") != "") {
                         $ilCtrl->setParameterByClass("ilExerciseHandlerGUI", "ass_id", $parts[1]);
                         $ilCtrl->setParameterByClass("ilExerciseHandlerGUI", "ass_id_goto", $parts[1]);
                     }
-                    $ilCtrl->redirectByClass(array("ilRepositoryGUI", "ilExerciseHandlerGUI", "ilObjExerciseGUI"), "showOverview");
+                    $ilCtrl->redirectByClass(
+                        array("ilExerciseHandlerGUI", "ilObjExerciseGUI"),
+                        "showOverview"
+                    );
                     break;
 
             }
         } elseif ($ilAccess->checkAccess("visible", "", $a_target)) {
-            $ilCtrl->redirectByClass(array("ilRepositoryGUI", "ilExerciseHandlerGUI", "ilObjExerciseGUI"), "infoScreen");
+            $ilCtrl->redirectByClass(
+                array("ilExerciseHandlerGUI", "ilObjExerciseGUI"),
+                "infoScreen"
+            );
         } elseif ($ilAccess->checkAccess("read", "", ROOT_FOLDER_ID)) {
-            ilUtil::sendFailure(sprintf(
+            $main_tpl->setOnScreenMessage('failure', sprintf(
                 $lng->txt("msg_no_perm_read_item"),
                 ilObject::_lookupTitle(ilObject::_lookupObjId($a_target))
             ), true);
@@ -923,33 +924,45 @@ class ilObjExerciseGUI extends ilObjectGUI
     }
 
     /**
-    * Add locator item
-    */
-    public function addLocatorItems()
+     * Add locator item
+     */
+    protected function addLocatorItems(): void
     {
         $ilLocator = $this->locator;
-        
+
         if (is_object($this->object)) {
             // #17955
-            $ilLocator->addItem($this->object->getTitle(), $this->ctrl->getLinkTarget($this, "showOverview"), "", $_GET["ref_id"]);
+            $ilLocator->addItem(
+                $this->object->getTitle(),
+                $this->ctrl->getLinkTarget($this, "showOverview"),
+                "",
+                $this->requested_ref_id
+            );
         }
     }
-    
-    
+
+
     ////
     //// Assignments, Learner's View
     ////
 
     /**
-     * Show overview of assignments
+     * @throws ilObjectNotFoundException
+     * @throws ilCtrlException
+     * @throws ilDatabaseException
+     * @throws ilObjectException
+     * @throws ilExcUnknownAssignmentTypeException
+     * @throws ilDateTimeException
      */
-    public function showOverviewObject()
+    public function showOverviewObject(): void
     {
         $tpl = $this->tpl;
         $ilTabs = $this->tabs;
         $ilUser = $this->user;
         $ilToolbar = $this->toolbar;
-        
+        /** @var ilObjExercise $exc */
+        $exc = $this->object;
+
         $this->checkPermission("read");
 
         $ilTabs->activateTab("content");
@@ -960,29 +973,31 @@ class ilObjExerciseGUI extends ilObjectGUI
         }
 
         $tpl->addJavaScript("./Modules/Exercise/js/ilExcPresentation.js");
-        
+
         ilLearningProgress::_tracProgress(
             $ilUser->getId(),
             $this->object->getId(),
             $this->object->getRefId(),
             'exc'
         );
-        
 
-        if ($this->certificateDownloadValidator->isCertificateDownloadable((int) $ilUser->getId(), (int) $this->object->getId())) {
+        if ($this->certificateDownloadValidator->isCertificateDownloadable(
+            $ilUser->getId(),
+            $this->object->getId()
+        )) {
             $ilToolbar->addButton(
                 $this->lng->txt("certificate"),
                 $this->ctrl->getLinkTarget($this, "outCertificate")
             );
         }
 
-        $ass_gui = new ilExAssignmentGUI($this->object, $this->getService());
-                
+        $ass_gui = new ilExAssignmentGUI($exc, $this->getService());
+
         $acc = new ilAccordionGUI();
         $acc->setId("exc_ow_" . $this->object->getId());
 
         $ass_data = ilExAssignment::getInstancesByExercise($this->object->getId());
-        $random_manager = $this->service->getRandomAssignmentManager($this->object);
+        $random_manager = $this->service->domain()->assignment()->randomAssignments($exc);
         foreach ($ass_data as $ass) {
             if (!$random_manager->isAssignmentVisible($ass->getId(), $this->user->getId())) {
                 continue;
@@ -990,18 +1005,17 @@ class ilObjExerciseGUI extends ilObjectGUI
 
             // incoming assignment deeplink
             $force_open = false;
-            if (isset($_GET["ass_id_goto"]) &&
-                (int) $_GET["ass_id_goto"] == $ass->getId()) {
+            if ($this->requested_ass_id_goto === $ass->getId()) {
                 $force_open = true;
             }
-            
+
             $acc->addItem(
                 $ass_gui->getOverviewHeader($ass),
                 $ass_gui->getOverviewBody($ass),
                 $force_open
             );
         }
-        
+
         if (count($ass_data) < 2) {
             $acc->setBehaviour("FirstOpen");
         } else {
@@ -1013,8 +1027,11 @@ class ilObjExerciseGUI extends ilObjectGUI
 
         $tpl->setContent($mtpl->get());
     }
-    
-    public function certificateObject()
+
+    /**
+     * @throws ilException
+     */
+    public function certificateObject(): void
     {
         $this->setSettingsSubTabs();
         $this->tabs_gui->activateTab("settings");
@@ -1025,8 +1042,8 @@ class ilObjExerciseGUI extends ilObjectGUI
 
         $output_gui->certificateEditor();
     }
-    
-    public function outCertificateObject()
+
+    public function outCertificateObject(): void
     {
         global $DIC;
 
@@ -1035,10 +1052,10 @@ class ilObjExerciseGUI extends ilObjectGUI
 
         $ilUser = $this->user;
 
-        $objectId = (int) $this->object->getId();
+        $objectId = $this->object->getId();
 
-        if (false === $this->certificateDownloadValidator->isCertificateDownloadable($ilUser->getId(), $objectId)) {
-            ilUtil::sendFailure($this->lng->txt("permission_denied"), true);
+        if (!$this->certificateDownloadValidator->isCertificateDownloadable($ilUser->getId(), $objectId)) {
+            $this->tpl->setOnScreenMessage('failure', $this->lng->txt("permission_denied"), true);
             $this->ctrl->redirect($this);
         }
 
@@ -1052,21 +1069,19 @@ class ilObjExerciseGUI extends ilObjectGUI
             $this->lng->txt('error_creating_certificate_pdf')
         );
 
-        $pdfAction->downloadPdf((int) $ilUser->getId(), (int) $objectId);
+        $pdfAction->downloadPdf($ilUser->getId(), $objectId);
     }
 
     /**
      * Start assignment with relative deadline
      */
-    public function startAssignmentObject()
+    public function startAssignmentObject(): void
     {
-        global $DIC;
+        $ctrl = $this->ctrl;
+        $user = $this->user;
 
-        $ilCtrl = $DIC->ctrl();
-        $ilUser = $DIC->user();
-
-        if ($this->ass) {
-            $state = ilExcAssMemberState::getInstanceByIds($this->ass->getId(), $ilUser->getId());
+        if ($this->ass !== null) {
+            $state = ilExcAssMemberState::getInstanceByIds($this->ass->getId(), $user->getId());
             if (!$state->getCommonDeadline() && $state->getRelativeDeadline()) {
                 $idl = $state->getIndividualDeadlineObject();
                 $idl->setStartingTimestamp(time());
@@ -1074,18 +1089,19 @@ class ilObjExerciseGUI extends ilObjectGUI
             }
         }
 
-        $ilCtrl->redirect($this, "showOverview");
+        $ctrl->redirect($this, "showOverview");
     }
 
     /**
      * Display random assignment start page, if necessary
-     *
-     * @return bool
      */
-    protected function handleRandomAssignmentEntryPage()
+    protected function handleRandomAssignmentEntryPage(): bool
     {
+        /** @var ilObjExercise $exc */
+        $exc = $this->object;
+
         $service = $this->getService();
-        $random_manager = $service->getRandomAssignmentManager($this->object);
+        $random_manager = $service->domain()->assignment()->randomAssignments($exc);
         if ($random_manager->needsStart()) {
             $gui = $this->exercise_ui->getRandomAssignmentGUI();
             $gui->renderStartPage();

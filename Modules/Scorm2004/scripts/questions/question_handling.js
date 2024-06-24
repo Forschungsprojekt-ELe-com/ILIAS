@@ -126,21 +126,15 @@ ilias.questions.handleMCImages = function(a_id) {
 	}
 
 	jQuery('div#container' + a_id + ' input.order').each(function(key, node){
-		for(var i=0;i<questions[a_id].answers.length;i++)
-		{
-			if(questions[a_id].answers[i].order == node.value)
-			{
+		for (var i=0;i<questions[a_id].answers.length;i++) {
+			if (questions[a_id].answers[i].order == node.value) {
 				var img = questions[a_id].answers[i].image;
-				if(img.length)
-				{
+				if (img.length) {
 					var text_node = jQuery(node).closest('.ilc_qanswer_Answer').find('.answertext');
-					if(questions[a_id].thumb > 0)
-					{
+					if (questions[a_id].thumb > 0) {
 						jQuery(text_node).before('<a class="ilc_qimgd_ImageDetailsLink" href="' + questions[a_id].path + img + '" target="_blank">' +
-							'<img class="ilc_qimg_QuestionImage" src="' + questions[a_id].path + 'thumb.' + img + '" /></a>');
-					}
-					else
-					{
+							'<img class="ilc_qimg_QuestionImage" src="' + questions[a_id].path + 'thumb.' + img + '" onerror="this.removeAttribute(\'onerror\'); this.style.maxHeight=\'' + questions[a_id].thumb + 'px\'; this.style.maxWidth=\'' + questions[a_id].thumb + 'px\'; this.src=\'' + questions[a_id].path + img + '\';" /></a>');
+					} else {
 						jQuery(text_node).before('<img class="ilc_qimg_QuestionImage" src="' + questions[a_id].path + img + '" />');
 					}
 
@@ -160,21 +154,15 @@ ilias.questions.handleKprimImages = function(a_id) {
 
 	jQuery('div#container' + a_id + ' .answers').each(function() {
 		var $firstOption = jQuery(this).find('input[type="radio"]:first');
-		for(var i=0;i<questions[a_id].answers.length;i++)
-		{
-			if('kprim_choice_' + a_id + '_result_' + questions[a_id].answers[i].order == $firstOption.prop("name"))
-			{
+		for (var i=0;i<questions[a_id].answers.length;i++) {
+			if ('kprim_choice_' + a_id + '_result_' + questions[a_id].answers[i].order == $firstOption.prop("name")) {
 				var img = questions[a_id].answers[i].image;
-				if(img.length)
-				{
+				if (img.length) {
 					var text_node = $firstOption.closest('tr').find('.answertext');
-					if(questions[a_id].thumb > 0)
-					{
+					if (questions[a_id].thumb > 0) {
 						jQuery(text_node).before('<a class="ilc_qimgd_ImageDetailsLink" href="' + questions[a_id].path + img + '" target="_blank">' +
-							'<img class="ilc_qimg_QuestionImage" src="' + questions[a_id].path + 'thumb.' + img + '" /></a>');
-					}
-					else
-					{
+							'<img class="ilc_qimg_QuestionImage" src="' + questions[a_id].path + 'thumb.' + img + '" onerror="this.removeAttribute(\'onerror\'); this.style.maxHeight=\'' + questions[a_id].thumb + 'px\'; this.style.maxWidth=\'' + questions[a_id].thumb + 'px\'; this.src=\'' + questions[a_id].path + img + '\';" /></a>');
+					} else {
 						jQuery(text_node).before('<img class="ilc_qimg_QuestionImage" src="' + questions[a_id].path + img + '" />');
 					}
 
@@ -289,7 +277,13 @@ ilias.questions.assTextQuestion = function(a_id) {
 	jQuery('#textarea'+a_id).prop("disabled",true);
 	jQuery('#feedback'+a_id).addClass("ilc_qfeedr_FeedbackRight");
 	jQuery('#feedback'+a_id).html('<b>Answer submitted!</b><br>');
-	jQuery('#feedback'+a_id).slideToggle();
+	const el = document.getElementById("feedback" + a_id);
+	if (el) {
+		el.style.display = '';
+		if (typeof MathJax != "undefined") {
+			MathJax.Hub.Queue(["Typeset",MathJax.Hub, el]);
+		}
+	}
 	answers[a_id].passed = true;
 	ilias.questions.scormHandler(a_id,"neutral",jQuery('#textarea'+a_id).val());
 };
@@ -326,10 +320,8 @@ ilias.questions.handleOrderingImages = function(a_id) {
 
 	jQuery("ul#order" + a_id + " div.answertext").each(function(id, node){
 		var src = jQuery(node).html();
-		jQuery(node).html('<img class="ilc_qimg_QuestionImage" src="' + questions[a_id].path + "thumb." + src + '" />' /*<br />' +
-			'<a class="ilc_qimgd_ImageDetailsLink" href="' + questions[a_id].path + src + '" target="_blank">(+)</a>'*/);
+		jQuery(node).html('<img class="ilc_qimg_QuestionImage" src="' + questions[a_id].path + "thumb." + src + '" />');
 		jQuery(node).parent().height("auto");
-		// jQuery(node).parent().width("auto");
 	});
 };
 
@@ -621,6 +613,18 @@ ilias.questions.assClozeTest = function(a_id) {
 
 ilias.questions.initClozeTest = function(a_id) {
 	var closecounter = 0;
+
+    let shuffleItems = (items) => {
+        let j, x, i;
+        for (i=items.length-1;i>0;i--) {
+            j = Math.floor(Math.random() * (i + 1));
+            k = items[i];
+            items[i] = items[j];
+            items[j] = k;
+        }
+        return items;
+    };
+
 	_initClozeTestCallBack = function (found) {
 		var type = questions[a_id].gaps[closecounter].type;
 		var input;
@@ -640,15 +644,21 @@ ilias.questions.initClozeTest = function(a_id) {
 		}
 		if (type==1) {
 			input = jQuery.create('select', {'id': a_id+"_"+closecounter, 'class': 'ilc_qinput_ClozeGapSelect'});
-			for (var i=0;i<questions[a_id].gaps[closecounter].item.length;i++) {
-				var option = jQuery.create('option', {'id': i, 'value':i},questions[a_id].gaps[closecounter].item[i].value);
+
+            let items = questions[a_id].gaps[closecounter].item;
+            if (questions[a_id].shuffle === true) {
+                items = shuffleItems(items);
+            }
+			for (var i=0;i<items.length;i++) {
+				var option = jQuery.create('option', {'id': i, 'value':i},items[i].value);
 				input.append(option);
 			}
 		}
 		closecounter++;
 		return input.outerHTML();
 	 };
-	var parsed=jQuery("div#"+a_id).get(0).innerHTML.replace(/\[gap\][^\[]+\[\/gap\]/g,function(){return _initClozeTestCallBack();});
+	var parsed=jQuery("div#"+a_id).get(0).innerHTML.replace(/\[gap\][^\[]+\[\/gap\]/g,
+        () => {return _initClozeTestCallBack();});
 	jQuery("div#"+a_id).html(parsed);
 };
 
@@ -739,66 +749,78 @@ ilias.questions.selectErrorText = function(a_id, node) {
 	jQuery(node).blur();
 };
 
-ilias.questions.assErrorText =function(a_id) {
-
-	answers[a_id].wrong = 0;
+ilias.questions.assErrorText = function(a_id) {
+    answers[a_id].wrong = 0;
 	answers[a_id].passed = true;
-	answers[a_id].choice = [];
 
-	if(questions[a_id].selected === undefined)
-	{
+	if (questions[a_id].selected === undefined) {
 		answers[a_id].passed = false;
-	}
-	else
-	{
-		var found = 0;
-		for(var i=0;i<questions[a_id].answers.length;i++)
-		{
-			// is current word a correct answer == wrong word?
-			var text_select = questions[a_id].answers[i]["answertext"];
-			var is_wrong = false;
-			for(var j=0;j<questions[a_id].correct_answers.length;j++)
-			{
-				if(text_select == questions[a_id].correct_answers[j]["answertext_wrong"] &&
-					questions[a_id].correct_answers[j]["pos"] == questions[a_id].answers[i]["order"]) // #14115
-				{
-					is_wrong = true;
-				}
-			}
-
-			// word has been selected
-			if(jQuery.inArray(questions[a_id].answers[i]["order"], questions[a_id].selected) > -1)
-			{
-				// word is not a correct answer
-				if(is_wrong === false)
-				{
-					answers[a_id].wrong++;
-				}
-				// found correct answer
-				else
-				{
-					found++;
-				}
-			}
-			// word has not been selected
-			else if(is_wrong === true)
-			{
-				// should have been selected
-				answers[a_id].wrong++;
-			}
-		}
-		if(found < questions[a_id].correct_answers.length ||
-			answers[a_id].wrong > 0)
-		{
-			answers[a_id].passed = false;
-		}
+        ilias.questions.showFeedback(a_id);
+        return;
 	}
 
-	ilias.questions.showFeedback(a_id);
-}
+    let found = 0;
 
-ilias.questions.showFeedback =function(a_id) {
+    let selected_words = questions[a_id].selected.sort();
+    let correct_answers = [];
+    questions[a_id].correct_answers.forEach(
+        (v) => {
+            correct_answers[v.pos] = v;
+        }
+    );
 
+    let l = 0;
+    let i = void 0;
+    selected_words.forEach(
+        (v) => {
+            if (l === 0 && typeof correct_answers[v] === undefined) {
+               answers[a_id].wrong++;
+               return;
+            }
+            if (typeof correct_answers[v] !== 'undefined' && correct_answers[v].length === 1) {
+                found++;
+                l = 0;
+                return;
+            }
+            if (typeof correct_answers[v] !== 'undefined') {
+                l++;
+                i = v;
+                return;
+            }
+            if (typeof i === 'undefined') {
+                answers[a_id].wrong++;
+                l = 0;
+                return;
+            }
+            if (typeof correct_answers[i] === 'undefined') {
+                i = void 0;
+                answers[a_id].wrong++;
+                l = 0;
+                return;
+            }
+            if (correct_answers[i].length === l+1) {
+                found++;
+                l = void 0;
+                return;
+            }
+            if (correct_answers[i].length > ++l) {
+                return;
+            }
+
+            answers[a_id].wrong++;
+            i = void 0;
+            l = 0;
+        }
+    );
+
+    if (found < questions[a_id].correct_answers.length ||
+        answers[a_id].wrong > 0) {
+        answers[a_id].passed = false;
+    }
+    ilias.questions.showFeedback(a_id);
+};
+
+ilias.questions.showFeedback = function(a_id) {
 	jQuery('#feedback'+a_id).hide();
 
 	// "image map as single choice" not supported yet
@@ -822,40 +844,29 @@ ilias.questions.showFeedback =function(a_id) {
 
 	var fbtext = "";
 
-	if (answers[a_id].passed===true || (answers[a_id].tries >=questions[a_id].nr_of_tries && questions[a_id].nr_of_tries!=0))
-	{
+	if (answers[a_id].passed===true || (answers[a_id].tries >=questions[a_id].nr_of_tries && questions[a_id].nr_of_tries!=0)) {
 		jQuery('#button'+a_id).prop("disabled",true);
 
-		if (answers[a_id].passed===true)
-		{
+		if (answers[a_id].passed===true) {
 			jQuery('#feedback'+a_id).addClass("ilc_qfeedr_FeedbackRight");
 
-			if( answers[a_id].isBestSolution )
-			{
-				if (ilias.questions.default_feedback)
-				{
+			if( answers[a_id].isBestSolution ) {
+				if (ilias.questions.default_feedback) {
 					fbtext = '<b>' + ilias.questions.txt.all_answers_correct + '</b><br />';
 				}
 
-				if (questions[a_id].feedback['allcorrect'])
-				{
+				if (questions[a_id].feedback['allcorrect']) {
 					fbtext += questions[a_id].feedback['allcorrect'];
 				}
 
-				if( jQuery.inArray(questions[a_id].type, ilias.questions.enhancedQuestionTypes) == -1 )
-				{
+				if( jQuery.inArray(questions[a_id].type, ilias.questions.enhancedQuestionTypes) == -1 ) {
 					ilias.questions.showCorrectAnswers(a_id);
 				}
-			}
-			else
-			{
-				if (ilias.questions.default_feedback)
-				{
+			} else {
+				if (ilias.questions.default_feedback) {
 					fbtext = '<b>' + ilias.questions.txt.enough_answers_correct + '</b><br />'
 						+ txt_wrong_answers + '<br />' + ilias.questions.txt.correct_answers_shown;
-				}
-				else if (questions[a_id].feedback['allcorrect'])
-				{
+				} else if (questions[a_id].feedback['allcorrect']) {
 					fbtext += questions[a_id].feedback['allcorrect'];
 				}
 
@@ -863,19 +874,15 @@ ilias.questions.showFeedback =function(a_id) {
 			}
 
 			ilias.questions.scormHandler(a_id,"correct",ilias.questions.toJSONString(answers[a_id]));
-		}
-		else
-		{
+		} else {
 			jQuery('#feedback'+a_id).addClass("ilc_qfeedw_FeedbackWrong");
 
-			if (ilias.questions.default_feedback)
-			{
+			if (ilias.questions.default_feedback) {
 				fbtext = '<b>' + ilias.questions.txt.nr_of_tries_exceeded + '</b><br />'
 							+ ilias.questions.txt.correct_answers_shown + '<br />';
 			}
 
-			if (questions[a_id].feedback['onenotcorrect'])
-			{
+			if (questions[a_id].feedback['onenotcorrect']) {
 				fbtext += questions[a_id].feedback['onenotcorrect'];
 			}
 
@@ -883,11 +890,8 @@ ilias.questions.showFeedback =function(a_id) {
 
 			ilias.questions.scormHandler(a_id,"incorrect",ilias.questions.toJSONString(answers[a_id]));
 		}
-	}
-	else
-	{
-		if (questions[a_id].nr_of_tries!=0)
-		{
+	} else {
+		if (questions[a_id].nr_of_tries!=0) {
 			jQuery('#feedback'+a_id).addClass("ilc_qfeedw_FeedbackWrong");
 
 			var rem = questions[a_id].nr_of_tries - answers[a_id].tries;
@@ -903,18 +907,14 @@ ilias.questions.showFeedback =function(a_id) {
 			}
 
 			ilias.questions.scormHandler(a_id,"incorrect",ilias.questions.toJSONString(answers[a_id]));
-		}
-		else
-		{
+		} else {
 			jQuery('#feedback'+a_id).addClass("ilc_qfeedw_FeedbackWrong");
 
-			if (ilias.questions.default_feedback)
-			{
+			if (ilias.questions.default_feedback) {
 				fbtext = txt_wrong_answers + '<br /> ' + ilias.questions.txt.please_try_again + '<br />';
 			}
 
-			if (questions[a_id].feedback['onenotcorrect'])
-			{
+			if (questions[a_id].feedback['onenotcorrect']) {
 				fbtext += questions[a_id].feedback['onenotcorrect'];
 			}
 
@@ -922,16 +922,19 @@ ilias.questions.showFeedback =function(a_id) {
 		}
 	}
 
-	jQuery('#feedback'+a_id).html(fbtext);
-	jQuery('#feedback'+a_id).slideToggle(400, 'swing', function(){
+    fb = fbtext.replace(/&#123;/g, '{').replace(/&#125;/g, '}');
+    jQuery('#feedback'+a_id).html(fb);
+
+	const el = document.getElementById('feedback' + a_id);
+	if (el) {
+		el.style.display = '';
 		if (typeof MathJax != "undefined" && typeof MathJax.Hub != "undefined") {
-			MathJax.Hub.Queue(["Typeset",MathJax.Hub, this]);
+			MathJax.Hub.Queue(["Typeset",MathJax.Hub, el]);
 		}
-	});
+	}
 
 	// update question overviews
-	if (typeof il.COPagePres != "undefined")
-	{
+	if (typeof il.COPagePres != "undefined") {
 		il.COPagePres.updateQuestionOverviews();
 	}
 
@@ -1265,32 +1268,19 @@ ilias.questions.showCorrectAnswers =function(a_id) {
 			//end assTextSubset
 
 		case 'assErrorText':
-			for(var i=0;i<questions[a_id].answers.length;i++)
-			{
-				var node = jQuery("div#container" + a_id + " span#" + questions[a_id].answers[i]["order"]);
-				if(node.length)
-				{
-					var is_wrong = false;
-					var correct = "";
-					for(var j=0;j<questions[a_id].correct_answers.length;j++)
-					{
-						if(questions[a_id].answers[i]["answertext"] == questions[a_id].correct_answers[j]["answertext_wrong"] &&
-							questions[a_id].correct_answers[j]["pos"] == questions[a_id].answers[i]["order"]) // #14115
-						{
-							is_wrong = true;
-							correct = questions[a_id].correct_answers[j]["answertext_correct"];
-						}
-					}
-					if(is_wrong == false)
-					{
-						jQuery(node).html(questions[a_id].answers[i]["answertext"]);
-					}
-					else
-					{
-						jQuery(node).html('<span class="ilc_qetcorr_ErrorTextCorrected">' +
-							questions[a_id].answers[i]["answertext"] + '</span>' + correct);
-					}
-				}
+            correct_answers = questions[a_id].correct_answers;
+            for (let i=0;i<correct_answers.length;i++) {
+                let node = document.getElementById(correct_answers[i]['pos']);
+                if (node.length === 0) {
+                    continue;
+                }
+                for (let j=1;j<correct_answers[i].length;j++) {
+                    node.parentNode.nextElementSibling.remove();
+                }
+
+                node.outerHTML = '<span class="ilc_qetcorr_ErrorTextCorrected">' +
+					correct_answers[i]["answertext_wrong"] + '</span>' + correct_answers[i]["answertext_correct"];
+
 			}
 			break;
 			//end assErrorText

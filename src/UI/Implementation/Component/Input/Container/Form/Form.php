@@ -1,118 +1,47 @@
 <?php
 
-/* Copyright (c) 2017 Richard Klees <richard.klees@concepts-and-training.de> Extended GPL, see docs/LICENSE */
+/**
+ * This file is part of ILIAS, a powerful learning management system
+ * published by ILIAS open source e-Learning e.V.
+ *
+ * ILIAS is licensed with the GPL-3.0,
+ * see https://www.gnu.org/licenses/gpl-3.0.en.html
+ * You should have received a copy of said license along with the
+ * source code, too.
+ *
+ * If this is not the case or you just want to try ILIAS, you'll find
+ * us at:
+ * https://www.ilias.de
+ * https://github.com/ILIAS-eLearning
+ *
+ *********************************************************************/
+
+declare(strict_types=1);
 
 namespace ILIAS\UI\Implementation\Component\Input\Container\Form;
 
-use ILIAS\UI\Implementation\Component\ComponentHelper;
+use ILIAS\UI\Implementation\Component\Input\Container\Container;
 use ILIAS\UI\Component as C;
-use ILIAS\UI\Implementation as I;
-use ILIAS\UI\Implementation\Component as CI;
-use ILIAS\UI\Implementation\Component\Input;
-use ILIAS\Refinery\Transformation;
-use ILIAS\Data;
-use ILIAS\Refinery;
-
+use ILIAS\UI\Implementation\Component\Input\InputData;
 use Psr\Http\Message\ServerRequestInterface;
+use ILIAS\UI\Implementation\Component\Input\PostDataFromServerRequest;
+use ILIAS\UI\Implementation\Component\Input\NameSource;
 
 /**
  * This implements commonalities between all forms.
  */
-abstract class Form implements C\Input\Container\Form\Form, CI\Input\NameSource
+abstract class Form extends Container implements C\Input\Container\Form\Form
 {
-    use ComponentHelper;
     /**
-     * @var    C\Input\Field\Group
+     * @param C\Input\Container\Form\FormInput[] $inputs
      */
-    protected $input_group;
-    /**
-     * @var Transformation|null
-     */
-    protected $transformation;
-    /**
-     * For the implementation of NameSource.
-     *
-     * @var    int
-     */
-    private $count = 0;
-
-    /**
-     * @var null|string
-     */
-    protected $error = null;
-
-    /**
-     * @param array $inputs
-     */
-    public function __construct(Input\Field\Factory $field_factory, array $inputs)
-    {
-        $classes = [CI\Input\Field\Input::class];
-        $this->checkArgListElements("input", $inputs, $classes);
-        // TODO: this is a dependency and should be treated as such. `use` statements can be removed then.
-        $this->input_group = $field_factory->group(
-            $inputs
-        )->withNameFrom($this);
-        $this->transformation = null;
-    }
-
-
-    /**
-     * @inheritdoc
-     */
-    public function getInputs()
-    {
-        return $this->getInputGroup()->getInputs();
-    }
-
-
-    /**
-     * @inheritdoc
-     */
-    public function getInputGroup()
-    {
-        return $this->input_group;
-    }
-
-
-    /**
-     * @inheritdoc
-     */
-    public function withRequest(ServerRequestInterface $request)
-    {
-        if (!$this->isSanePostRequest($request)) {
-            throw new \LogicException("Server request is not a valid post request.");
-        }
-        $post_data = $this->extractPostData($request);
-
-        $clone = clone $this;
-        $clone->input_group = $this->getInputGroup()->withInput($post_data);
-
-        return $clone;
-    }
-
-
-    /**
-     * @inheritdoc
-     */
-    public function withAdditionalTransformation(Transformation $trafo)
-    {
-        $clone = clone $this;
-        $clone->input_group = $clone->getInputGroup()->withAdditionalTransformation($trafo);
-
-        return $clone;
-    }
-
-    /**
-     * @inheritdoc
-     */
-    public function getError()
-    {
-        return $this->error;
-    }
-
-    protected function setError(string $error) : void
-    {
-        $this->error = $error;
+    public function __construct(
+        C\Input\Field\Factory $field_factory,
+        NameSource $name_source,
+        array $inputs
+    ) {
+        parent::__construct($name_source);
+        $this->setInputGroup($field_factory->group($inputs)->withDedicatedName('form'));
     }
 
     public function hasRequiredInputs(): bool
@@ -126,55 +55,10 @@ abstract class Form implements C\Input\Container\Form\Form, CI\Input\NameSource
     }
 
     /**
-     * @inheritdoc
+     * @inheritDoc
      */
-    public function getData()
-    {
-        $content = $this->getInputGroup()->getContent();
-        if (!$content->isok()) {
-            $this->setError($content->error());
-            return null;
-        }
-
-        return $content->value();
-    }
-
-
-    /**
-     * Check the request for sanity.
-     *
-     * TODO: implement me!
-     *
-     * @param    ServerRequestInterface $request
-     *
-     * @return    bool
-     */
-    protected function isSanePostRequest(ServerRequestInterface $request)
-    {
-        return true;
-    }
-
-
-    /**
-     * Extract post data from request.
-     *
-     * @param    ServerRequestInterface $request
-     *
-     * @return    Input\InputData
-     */
-    protected function extractPostData(ServerRequestInterface $request)
+    protected function extractRequestData(ServerRequestInterface $request): InputData
     {
         return new PostDataFromServerRequest($request);
-    }
-
-
-    // Implementation of NameSource
-
-    public function getNewName()
-    {
-        $name = "form_input_{$this->count}";
-        $this->count++;
-
-        return $name;
     }
 }

@@ -1,4 +1,4 @@
-<?php declare(strict_types=1);
+<?php
 
 /**
  * This file is part of ILIAS, a powerful learning management system
@@ -16,6 +16,8 @@
  *
  *********************************************************************/
 
+declare(strict_types=1);
+
 abstract class ilAbstractBuddySystemRelationStateTableFilterMapper implements ilBuddySystemRelationStateTableFilterMapper
 {
     /** @var ilLanguage */
@@ -29,14 +31,14 @@ abstract class ilAbstractBuddySystemRelationStateTableFilterMapper implements il
         $this->state = $state;
     }
 
-    public function optionsForState() : array
+    public function optionsForState(): array
     {
         return [
             get_class($this->state) => $this->lng->txt('buddy_bs_state_' . strtolower($this->state->getName()))
         ];
     }
 
-    public function filterMatchesRelation(string $filter_key, ilBuddySystemRelation $relation) : bool
+    public function filterMatchesRelation(string $filter_key, ilBuddySystemRelation $relation): bool
     {
         return (
             strtolower($filter_key) === strtolower(get_class($this->state))

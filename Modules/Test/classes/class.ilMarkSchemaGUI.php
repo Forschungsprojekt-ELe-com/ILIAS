@@ -1,5 +1,28 @@
 <?php
-/* Copyright (c) 1998-2014 ILIAS open source, Extended GPL, see docs/LICENSE */
+
+/**
+ * This file is part of ILIAS, a powerful learning management system
+ * published by ILIAS open source e-Learning e.V.
+ *
+ * ILIAS is licensed with the GPL-3.0,
+ * see https://www.gnu.org/licenses/gpl-3.0.en.html
+ * You should have received a copy of said license along with the
+ * source code, too.
+ *
+ * If this is not the case or you just want to try ILIAS, you'll find
+ * us at:
+ * https://www.ilias.de
+ * https://github.com/ILIAS-eLearning
+ *
+ *********************************************************************/
+
+use ILIAS\HTTP\Wrapper\RequestWrapper;
+use GuzzleHttp\Psr7\Request;
+use ILIAS\Refinery\Factory as Refinery;
+use ILIAS\UI\Factory as UIFactory;
+use ILIAS\UI\Renderer as UIRenderer;
+use ILIAS\UI\Component\Button\Standard as StandardButton;
+use ILIAS\UI\Component\Modal\Interruptive as InterruptiveModal;
 
 /**
  * Class ilMarkSchemaGUI
@@ -8,95 +31,72 @@
  */
 class ilMarkSchemaGUI
 {
+    private const RESET_MARK_BUTTON_LABEL = 'tst_mark_reset_to_simple_mark_schema';
+    private RequestWrapper $post_wrapper;
+    private Request $request;
+    private Refinery $refinery;
+
     /**
      * @var ilMarkSchemaAware|ilEctsGradesEnabled
      */
     protected $object;
-
-    /**
-     * @var ilLanguage
-     */
-    protected $lng;
-
-    /**
-     * @var ilCtrl
-     */
-    protected $ctrl;
-
-    /**
-     * @var ilTemplate
-     */
-    protected $tpl;
-
-    /**
-     * @var ilToolbarGUI
-     */
-    protected $toolbar;
+    protected ilLanguage $lng;
+    protected ilCtrl $ctrl;
+    protected ilGlobalPageTemplate $tpl;
+    protected ilToolbarGUI $toolbar;
+    protected ilTabsGUI $tabs;
+    protected UIFactory $ui_factory;
+    protected UIRenderer $ui_renderer;
 
     /**
      * @param ilMarkSchemaAware|ilEctsGradesEnabled $object
      */
-    public function __construct(ilMarkSchemaAware $object)
+    public function __construct($object)
     {
-        /**
-         * @var $ilCtrl    ilCtrl
-         * @var $lng       ilLanguage
-         * @var $tpl       ilTemplate
-         * @var $ilToolbar ilToolbarGUI
-         */
+        /** @var ILIAS\DI\Container $DIC */
         global $DIC;
-        $ilCtrl = $DIC['ilCtrl'];
-        $lng = $DIC['lng'];
-        $tpl = $DIC['tpl'];
-        $ilToolbar = $DIC['ilToolbar'];
 
-        $this->ctrl = $ilCtrl;
-        $this->lng = $lng;
-        $this->tpl = $tpl;
-        $this->toolbar = $ilToolbar;
-
+        $this->ctrl = $DIC['ilCtrl'];
+        $this->lng = $DIC['lng'];
+        $this->tpl = $DIC['tpl'];
+        $this->toolbar = $DIC['ilToolbar'];
         $this->object = $object;
+        $this->post_wrapper = $DIC->http()->wrapper()->post();
+        $this->request = $DIC->http()->request();
+        $this->refinery = $DIC->refinery();
+        $this->ui_factory = $DIC['ui.factory'];
+        $this->ui_renderer = $DIC['ui.renderer'];
     }
 
-    /**
-     * Controller method
-     */
-    public function executeCommand()
+    public function executeCommand(): void
     {
-        global $DIC; /* @var ILIAS\DI\Container $DIC */
+        global $DIC;
 
         $DIC->tabs()->activateTab(ilTestTabsManager::TAB_ID_SETTINGS);
-
         $cmd = $this->ctrl->getCmd('showMarkSchema');
+        if ($cmd === self::RESET_MARK_BUTTON_LABEL) {
+            $cmd = 'resetToSimpleMarkSchema';
+        }
         $this->$cmd();
     }
 
-    /**
-     *
-     */
-    protected function ensureMarkSchemaCanBeEdited()
+    protected function ensureMarkSchemaCanBeEdited(): void
     {
         if (!$this->object->canEditMarks()) {
-            ilUtil::sendFailure($this->lng->txt('permission_denied'), true);
+            $this->tpl->setOnScreenMessage('failure', $this->lng->txt('permission_denied'), true);
             $this->ctrl->redirect($this, 'showMarkSchema');
         }
     }
 
-    /**
-     *
-     */
-    protected function ensureEctsGradesCanBeEdited()
+    protected function ensureEctsGradesCanBeEdited(): void
     {
         if (!$this->object->canEditEctsGrades()) {
-            ilUtil::sendFailure($this->lng->txt('permission_denied'), true);
+            $this->tpl->setOnScreenMessage('failure', $this->lng->txt('permission_denied'), true);
             $this->ctrl->redirect($this, 'showMarkSchema');
         }
     }
 
-    /**
-     * Add a new mark step to the tests marks
-     */
-    protected function addMarkStep()
+    protected function addMarkStep(): void
     {
         $this->ensureMarkSchemaCanBeEdited();
 
@@ -108,11 +108,11 @@ class ilMarkSchemaGUI
         $this->showMarkSchema();
     }
 
-    protected function saveMarkSchemaFormData()
+    protected function saveMarkSchemaFormData(): bool
     {
         $no_save_error = true;
         $this->object->getMarkSchema()->flush();
-        $postdata = $_POST;
+        $postdata = $this->request->getParsedBody();
         foreach ($postdata as $key => $value) {
             if (preg_match('/mark_short_(\d+)/', $key, $matches)) {
                 $passed = "0";
@@ -140,10 +140,7 @@ class ilMarkSchemaGUI
         return $no_save_error;
     }
 
-    /**
-     * Add a simple mark schema to the tests marks
-     */
-    protected function addSimpleMarkSchema()
+    protected function resetToSimpleMarkSchema(): void
     {
         $this->ensureMarkSchemaCanBeEdited();
 
@@ -157,34 +154,47 @@ class ilMarkSchemaGUI
             50,
             1
         );
+        $this->object->getMarkSchema()->saveToDb($this->object->getTestId());
         $this->showMarkSchema();
     }
 
-    /**
-     * Delete selected mark steps
-     */
-    protected function deleteMarkSteps() : void
+    protected function deleteMarkSteps(): void
     {
-        $delete_mark_steps = $_POST['marks'];
+        $marks_trafo = $this->refinery->custom()->transformation(
+            function ($vs): ?array {
+                if ($vs === null || !is_array($vs)) {
+                    return null;
+                }
+                return $vs;
+            }
+        );
+        $deleted_mark_steps = null;
+        if ($this->post_wrapper->has('marks')) {
+            $deleted_mark_steps = $this->post_wrapper->retrieve(
+                'marks',
+                $marks_trafo
+            );
+        }
+
         $this->ensureMarkSchemaCanBeEdited();
-        if (!isset($delete_mark_steps) || !is_array($delete_mark_steps)) {
+        if (!isset($deleted_mark_steps) || !is_array($deleted_mark_steps)) {
             $this->showMarkSchema();
             return;
         }
 
         // test delete
         $schema = clone $this->object->getMarkSchema();
-        $schema->deleteMarkSteps($delete_mark_steps);
+        $schema->deleteMarkSteps($deleted_mark_steps);
         $check_result = $schema->checkMarks();
         if (is_string($check_result)) {
-            ilUtil::sendFailure($this->lng->txt($check_result), true);
+            $this->tpl->setOnScreenMessage('failure', $this->lng->txt($check_result), true);
             $this->showMarkSchema();
             return;
         }
 
         //  actual delete
-        if (!empty($delete_mark_steps)) {
-            $this->object->getMarkSchema()->deleteMarkSteps($delete_mark_steps);
+        if (!empty($deleted_mark_steps)) {
+            $this->object->getMarkSchema()->deleteMarkSteps($deleted_mark_steps);
         } else {
             $this->tpl->setOnScreenMessage('info', $this->lng->txt('tst_delete_missing_mark'));
         }
@@ -193,10 +203,7 @@ class ilMarkSchemaGUI
         $this->showMarkSchema();
     }
 
-    /**
-     * Save the mark schema
-     */
-    protected function saveMarks()
+    protected function saveMarks(): void
     {
         $this->ensureMarkSchemaCanBeEdited();
 
@@ -207,7 +214,7 @@ class ilMarkSchemaGUI
         }
 
         if (is_string($result)) {
-            ilUtil::sendFailure($this->lng->txt($result), true);
+            $this->tpl->setOnScreenMessage('failure', $this->lng->txt($result), true);
         } else {
             $this->object->getMarkSchema()->saveToDb($this->object->getMarkSchemaForeignId());
             $this->object->onMarkSchemaSaved();
@@ -219,64 +226,74 @@ class ilMarkSchemaGUI
         $this->showMarkSchema();
     }
 
-    /**
-     * @return boolean
-     */
-    private function objectSupportsEctsGrades()
+    private function objectSupportsEctsGrades(): bool
     {
         require_once 'Modules/Test/interfaces/interface.ilEctsGradesEnabled.php';
         return $this->object instanceof ilEctsGradesEnabled;
     }
 
-    /**
-     * Display mark schema
-     * @param ilPropertyFormGUI $ects_form
-     */
-    protected function showMarkSchema(ilPropertyFormGUI $ects_form = null)
+    protected function showMarkSchema(?ilPropertyFormGUI $ects_form = null): void
     {
         if (!$this->object->canEditMarks()) {
-            ilUtil::sendInfo($this->lng->txt('cannot_edit_marks'));
+            $this->tpl->setOnScreenMessage('info', $this->lng->txt('cannot_edit_marks'));
         }
 
         $this->toolbar->setFormAction($this->ctrl->getFormAction($this, 'showMarkSchema'));
 
         require_once 'Modules/Test/classes/tables/class.ilMarkSchemaTableGUI.php';
         $mark_schema_table = new ilMarkSchemaTableGUI($this, 'showMarkSchema', '', $this->object);
+        $mark_schema_table->setShowRowsSelector(false);
 
+        $rendered_modal = '';
         if ($this->object->canEditMarks()) {
-            require_once 'Services/UIComponent/Button/classes/class.ilSubmitButton.php';
-            $create_simple_mark_schema_button = ilSubmitButton::getInstance();
-            $create_simple_mark_schema_button->setCaption($this->lng->txt('tst_mark_create_simple_mark_schema'), false);
-            $create_simple_mark_schema_button->setCommand('addSimpleMarkSchema');
-            $this->toolbar->addButtonInstance($create_simple_mark_schema_button);
-
-            require_once 'Services/UIComponent/Button/classes/class.ilButton.php';
-            $create_new_mark_step_button = ilButton::getInstance();
-            $create_new_mark_step_button->setCaption($this->lng->txt('tst_mark_create_new_mark_step'), false);
-            $create_new_mark_step_button->setButtonType(ilButton::BUTTON_TYPE_SUBMIT);
-            $create_new_mark_step_button->setForm('form_' . $mark_schema_table->getId());
-            $create_new_mark_step_button->setName('addMarkStep');
-            $this->toolbar->addButtonInstance($create_new_mark_step_button);
+            $confirmation_modal = $this->ui_factory->modal()->interruptive(
+                $this->lng->txt(self::RESET_MARK_BUTTON_LABEL),
+                $this->lng->txt('tst_mark_reset_to_simple_mark_schema_confirmation'),
+                $this->ctrl->getFormAction($this, 'resetToSimpleMarkSchema')
+            )->withActionButtonLabel(self::RESET_MARK_BUTTON_LABEL);
+            $this->populateToolbar($confirmation_modal, $mark_schema_table->getId());
+            $rendered_modal = $this->ui_renderer->render($confirmation_modal);
         }
 
-
-        $content_parts = array($mark_schema_table->getHTML());
-
-        if ($this->objectSupportsEctsGrades() && $this->object->canShowEctsGrades()) {
-            if (!($ects_form instanceof ilPropertyFormGUI)) {
-                $ects_form = $this->getEctsForm();
-                $this->populateEctsForm($ects_form);
-            }
-            $content_parts[] = $ects_form->getHTML();
-        }
-
-        $this->tpl->setContent(implode('<br />', $content_parts));
+        $this->tpl->setContent(
+            $mark_schema_table->getHTML() . $rendered_modal
+        );
     }
 
-    /**
-     * @param ilPropertyFormGUI $form
-     */
-    protected function populateEctsForm(ilPropertyFormGUI $form)
+    private function populateToolbar(InterruptiveModal $confirmation_modal, string $mark_schema_id): void
+    {
+        $create_simple_schema_button = $this->ui_factory->button()->standard(
+            $this->lng->txt(self::RESET_MARK_BUTTON_LABEL),
+            $confirmation_modal->getShowSignal()
+        );
+        $this->toolbar->addComponent($create_simple_schema_button);
+
+        $create_step_button = $this->buildCreateStepButton($mark_schema_id);
+        $this->toolbar->addComponent($create_step_button);
+    }
+
+    private function buildCreateStepButton(string $mark_schema_id): StandardButton
+    {
+        return $this->ui_factory->button()->standard(
+            $this->lng->txt('tst_mark_create_new_mark_step'),
+            ''
+        )->withAdditionalOnLoadCode(
+            fn (string $id): string =>
+            "{$id}.addEventListener('click', "
+            . ' (e) => {'
+            . '     e.preventDefault();'
+            . '     e.target.name = "cmd[addMarkStep]";'
+            . "     let form = document.getElementById('form_{$mark_schema_id}');"
+            . '     let submitter = e.target.cloneNode();'
+            . '     submitter.style.visibility = "hidden";'
+            . '     form.appendChild(submitter);'
+            . '     form.requestSubmit(submitter);'
+            . ' }'
+            . ');'
+        );
+    }
+
+    protected function populateEctsForm(ilPropertyFormGUI $form): void
     {
         $data = array();
 
@@ -293,10 +310,7 @@ class ilMarkSchemaGUI
         $form->setValuesByArray($data);
     }
 
-    /**
-     * @return ilPropertyFormGUI
-     */
-    protected function getEctsForm()
+    protected function getEctsForm(): ilPropertyFormGUI
     {
         require_once 'Services/Form/classes/class.ilPropertyFormGUI.php';
 
@@ -360,10 +374,7 @@ class ilMarkSchemaGUI
         return $form;
     }
 
-    /**
-     *
-     */
-    protected function saveEctsForm()
+    protected function saveEctsForm(): void
     {
         $this->ensureEctsGradesCanBeEdited();
 
@@ -384,13 +395,13 @@ class ilMarkSchemaGUI
         $this->object->setECTSOutput((int) $ects_form->getInput('ectcs_status'));
         $this->object->setECTSFX(
             $ects_form->getInput('use_ects_fx') && preg_match('/\d+/', $ects_form->getInput('ects_fx_threshold')) ?
-            $ects_form->getInput('ects_fx_threshold'):
+            $ects_form->getInput('ects_fx_threshold') :
             null
         );
 
         $this->object->saveECTSStatus();
 
-        ilUtil::sendSuccess($this->lng->txt('saved_successfully'));
+        $this->tpl->setOnScreenMessage('success', $this->lng->txt('saved_successfully'));
         $ects_form->setValuesByPost();
         $this->showMarkSchema($ects_form);
     }

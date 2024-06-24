@@ -1,5 +1,20 @@
 <?php
-/* Copyright (c) 1998-2016 ILIAS open source, Extended GPL, see docs/LICENSE */
+
+/**
+ * This file is part of ILIAS, a powerful learning management system
+ * published by ILIAS open source e-Learning e.V.
+ *
+ * ILIAS is licensed with the GPL-3.0,
+ * see https://www.gnu.org/licenses/gpl-3.0.en.html
+ * You should have received a copy of said license along with the
+ * source code, too.
+ *
+ * If this is not the case or you just want to try ILIAS, you'll find
+ * us at:
+ * https://www.ilias.de
+ * https://github.com/ILIAS-eLearning
+ *
+ *********************************************************************/
 
 include_once("./Services/ContainerReference/classes/class.ilContainerReferenceAccess.php");
 
@@ -13,35 +28,25 @@ include_once("./Services/ContainerReference/classes/class.ilContainerReferenceAc
 class ilObjGroupReferenceAccess extends ilContainerReferenceAccess
 {
     /**
-    * Checks wether a user may invoke a command or not
+    * Checks whether a user may invoke a command or not
     * (this method is called by ilAccessHandler::checkAccess)
     *
     * Please do not check any preconditions handled by
     * ilConditionHandler here. Also don't do any RBAC checks.
-    *
-    * @global ilAccessHandler $ilAccess
-    *
-    * @param	string		$a_cmd			command (not permission!)
-    * @param	string		$a_permission	permission
-    * @param	int			$a_ref_id		reference id
-    * @param	int			$a_obj_id		object id
-    * @param	int			$a_user_id		user id (if not provided, current user is taken)
-    *
-    * @return	boolean		true, if everything is ok
     */
-    public function _checkAccess($a_cmd, $a_permission, $a_ref_id, $a_obj_id, $a_user_id = "")
+    public function _checkAccess(string $cmd, string $permission, int $ref_id, int $obj_id, ?int $user_id = null): bool
     {
         global $DIC;
 
         $ilAccess = $DIC['ilAccess'];
-        
-        switch ($a_permission) {
+
+        switch ($permission) {
             case 'visible':
             case 'read':
                 include_once './Modules/GroupReference/classes/class.ilObjGroupReference.php';
-                $target_ref_id = ilObjGroupReference::_lookupTargetRefId($a_obj_id);
-                
-                if (!$ilAccess->checkAccessOfUser($a_user_id, $a_permission, $a_cmd, $target_ref_id)) {
+                $target_ref_id = (int) ilObjGroupReference::_lookupTargetRefId($obj_id);
+
+                if (!$ilAccess->checkAccessOfUser($user_id, $permission, $cmd, $target_ref_id)) {
                     return false;
                 }
                 break;
@@ -67,15 +72,13 @@ class ilObjGroupReferenceAccess extends ilContainerReferenceAccess
      *		array("permission" => "read", "cmd" => "view", "lang_var" => "show"),
      *		array("permission" => "write", "cmd" => "edit", "lang_var" => "edit"),
      *	);
-     *
-     * @return array
      */
-    public static function _getCommands($a_ref_id = 0)
+    public static function _getCommands($a_ref_id = 0): array
     {
         global $DIC;
 
         $ilAccess = $DIC['ilAccess'];
-        
+
         if ($ilAccess->checkAccess('write', '', $a_ref_id)) {
             // Only local (reference specific commands)
             $commands = array(

@@ -1,57 +1,46 @@
 <?php
 
-/* Copyright (c) 1998-2019 ILIAS open source, Extended GPL, see docs/LICENSE */
+/**
+ * This file is part of ILIAS, a powerful learning management system
+ * published by ILIAS open source e-Learning e.V.
+ *
+ * ILIAS is licensed with the GPL-3.0,
+ * see https://www.gnu.org/licenses/gpl-3.0.en.html
+ * You should have received a copy of said license along with the
+ * source code, too.
+ *
+ * If this is not the case or you just want to try ILIAS, you'll find
+ * us at:
+ * https://www.ilias.de
+ * https://github.com/ILIAS-eLearning
+ *
+ *********************************************************************/
 
 /**
  * Class ilAccessibilitySupportContactsGUI
  *
  * @author Thomas Famula <famula@leifos.de>
  */
-class ilAccessibilitySupportContactsGUI
+class ilAccessibilitySupportContactsGUI implements ilCtrlBaseClassInterface
 {
-    /**
-     * @var ilTemplate
-     */
-    protected $tpl;
+    protected ilLanguage $lng;
+    protected ilCtrl $ctrl;
+    protected ILIAS\HTTP\Services $http;
 
-    /**
-     * @var ilLanguage
-     */
-    protected $lng;
-
-    /**
-     * @var ilCtrl
-     */
-    protected $ctrl;
-
-    /**
-     * @var \ILIAS\DI\HTTPServices
-     */
-    protected $http;
-
-    /**
-     * Constructor
-     */
     public function __construct()
     {
         global $DIC;
 
         $ctrl = $DIC->ctrl();
-        $tpl = $DIC["tpl"];
         $lng = $DIC->language();
         $http = $DIC->http();
 
         $this->ctrl = $ctrl;
-        $this->tpl = $tpl;
         $this->lng = $lng;
         $this->http = $http;
     }
 
-
-    /**
-     * Execute command
-     */
-    public function executeCommand()
+    public function executeCommand(): void
     {
         $cmd = $this->ctrl->getCmd("sendIssueMail");
         if (in_array($cmd, array("sendIssueMail"))) {
@@ -59,31 +48,27 @@ class ilAccessibilitySupportContactsGUI
         }
     }
 
-
-    public function sendIssueMail() : void
+    public function sendIssueMail(): void
     {
-        $back_url = $this->http->request()->getServerParams()['HTTP_REFERER'];
+        $back_url = $this->http->request()->getServerParams()["HTTP_REFERER"];
         $this->ctrl->redirectToURL(
             ilMailFormCall::getRedirectTarget(
                 $back_url,
-                '',
+                "",
                 [],
                 [
-                    'type' => 'new',
-                    'rcp_to' => $this->getContactLogins(),
-                    'sig' => $this->getAccessibilityIssueMailMessage($back_url)
+                    "type" => "new",
+                    "rcp_to" => $this->getContactLogins(),
+                    "sig" => $this->getAccessibilityIssueMailMessage($back_url)
                 ]
             )
         );
     }
 
-    /**
-     * @return string
-     */
-    private function getAccessibilityIssueMailMessage(string $back_url) : string
+    private function getAccessibilityIssueMailMessage(string $back_url): string
     {
         $sig = chr(13) . chr(10) . chr(13) . chr(10) . chr(13) . chr(10);
-        $sig .= $this->lng->txt('report_accessibility_link');
+        $sig .= $this->lng->txt("report_accessibility_link");
         $sig .= chr(13) . chr(10);
         $sig .= $back_url;
         $sig = rawurlencode(base64_encode($sig));
@@ -93,10 +78,8 @@ class ilAccessibilitySupportContactsGUI
 
     /**
      * Get accessibility support contacts as comma separated string
-     *
-     * @return string
      */
-    private function getContactLogins() : string
+    private function getContactLogins(): string
     {
         $logins = [];
 
@@ -104,15 +87,10 @@ class ilAccessibilitySupportContactsGUI
             $logins[] = ilObjUser::_lookupLogin($contact_id);
         }
 
-        return implode(',', $logins);
+        return implode(",", $logins);
     }
 
-    /**
-     * Get footer link
-     *
-     * @return string footer link
-     */
-    public static function getFooterLink()
+    public static function getFooterLink(): string
     {
         global $DIC;
 
@@ -127,28 +105,23 @@ class ilAccessibilitySupportContactsGUI
             if ($rbac_system->checkAccess("internal_mail", ilMailGlobalServices::getMailObjectRefId())) {
                 return $ctrl->getLinkTargetByClass("ilaccessibilitysupportcontactsgui", "");
             } else {
-                $mails = ilUtil::prepareFormOutput(
+                $mails = ilLegacyFormElementsUtil::prepareFormOutput(
                     ilAccessibilitySupportContacts::getMailsToAddress()
                 );
                 $request_scheme =
-                    isset($http->request()->getServerParams()['HTTPS'])
-                    && $http->request()->getServerParams()['HTTPS'] !== 'off'
-                        ? 'https' : 'http';
-                $url = $request_scheme . '://'
-                    . $http->request()->getServerParams()['HTTP_HOST']
-                    . $http->request()->getServerParams()['REQUEST_URI'];
+                    isset($http->request()->getServerParams()["HTTPS"])
+                    && $http->request()->getServerParams()["HTTPS"] !== "off"
+                        ? "https" : "http";
+                $url = $request_scheme . "://"
+                    . $http->request()->getServerParams()["HTTP_HOST"]
+                    . $http->request()->getServerParams()["REQUEST_URI"];
                 return "mailto:" . $mails . "?body=%0D%0A%0D%0A" . $lng->txt("report_accessibility_link_mailto") . "%0A" . rawurlencode($url);
             }
         }
         return "";
     }
 
-    /**
-     * Get footer text
-     *
-     * @return string footer text
-     */
-    public static function getFooterText()
+    public static function getFooterText(): string
     {
         global $DIC;
 

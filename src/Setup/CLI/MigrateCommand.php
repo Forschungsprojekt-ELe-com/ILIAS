@@ -1,5 +1,22 @@
 <?php
-/* Copyright (c) 2016 Richard Klees <richard.klees@concepts-and-training.de> Extended GPL, see docs/LICENSE */
+
+/**
+ * This file is part of ILIAS, a powerful learning management system
+ * published by ILIAS open source e-Learning e.V.
+ *
+ * ILIAS is licensed with the GPL-3.0,
+ * see https://www.gnu.org/licenses/gpl-3.0.en.html
+ * You should have received a copy of said license along with the
+ * source code, too.
+ *
+ * If this is not the case or you just want to try ILIAS, you'll find
+ * us at:
+ * https://www.ilias.de
+ * https://github.com/ILIAS-eLearning
+ *
+ *********************************************************************/
+
+declare(strict_types=1);
 
 namespace ILIAS\Setup\CLI;
 
@@ -27,7 +44,7 @@ class MigrateCommand extends Command
     /**
      * var Objective[]
      */
-    protected $preconditions;
+    protected array $preconditions;
 
     /**
      * @var Objective[] $preconditions will be achieved before command invocation
@@ -39,7 +56,7 @@ class MigrateCommand extends Command
         $this->preconditions = $preconditions;
     }
 
-    public function configure()
+    protected function configure(): void
     {
         $this->setDescription("Starts and manages migrations needed after an update of ILIAS");
         $this->addOption("yes", "y", InputOption::VALUE_NONE, "Confirm every message of the installation.");
@@ -53,7 +70,7 @@ class MigrateCommand extends Command
         $this->configureCommandForPlugins();
     }
 
-    public function execute(InputInterface $input, OutputInterface $output)
+    protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new IOWrapper($input, $output);
         $io->printLicenseMessage();
@@ -65,21 +82,23 @@ class MigrateCommand extends Command
         } else {
             $this->listMigrations($input, $io);
         }
+
+        return 0;
     }
 
-    protected function runMigration(InputInterface $input, IOWrapper $io) : void
+    protected function runMigration(InputInterface $input, IOWrapper $io): void
     {
         $agent = $this->getRelevantAgent($input);
 
         $migration_name = $input->getOption('run');
         $migrations = $agent->getMigrations();
         if (!isset($migrations[$migration_name]) || !($migrations[$migration_name] instanceof Migration)) {
-            $io->error("Aborting Migration, did not find {$migration_name}.");
+            $io->error("Aborting Migration, did not find $migration_name.");
             return;
         }
         $migration = $migrations[$migration_name];
 
-        $steps = (int)$input->getOption('steps');
+        $steps = (int) $input->getOption('steps');
 
         switch ($steps) {
             case Migration::INFINITE:
@@ -101,13 +120,13 @@ class MigrateCommand extends Command
         ]);
 
         $preconditions = $migration->getPreconditions($env);
-        if (count($preconditions) > 0) {
+        if ($preconditions !== []) {
             $objective = new Objective\ObjectiveWithPreconditions(
                 $objective,
                 ...$preconditions
             );
         }
-        $steps_text = $steps === Migration::INFINITE ? 'all' : (string)$steps;
+        $steps_text = $steps === Migration::INFINITE ? 'all' : (string) $steps;
         $io->inform("Preparing Environment for {$steps_text} steps in {$migration_name}");
         try {
             $this->achieveObjective($objective, $env, $io);
@@ -116,7 +135,7 @@ class MigrateCommand extends Command
         }
     }
 
-    protected function listMigrations(InputInterface $input, IOWrapper $io) : void
+    protected function listMigrations(InputInterface $input, IOWrapper $io): void
     {
         $agent = $this->getRelevantAgent($input);
         $migrations = $agent->getMigrations();
@@ -130,23 +149,23 @@ class MigrateCommand extends Command
             Environment::RESOURCE_ADMIN_INTERACTION => $io
         ]);
 
-        $io->inform("There are {$count} to run:");
+        $io->inform("Found $count migrations:");
         foreach ($migrations as $migration_key => $migration) {
             $env = $this->prepareEnvironmentForMigration($env, $migration);
             $migration->prepare($env);
             $steps = $migration->getRemainingAmountOfSteps();
-            $status = $steps === 0 ? "[done]" : "[remaining steps: {$steps}]";
+            $status = $steps === 0 ? "[done]" : "[remaining steps: $steps]";
             $io->text($migration_key . ": " . $migration->getLabel() . " " . $status);
         }
-        $io->inform("Run them by passing --run <migration_id>, e.g. --run $migration_key");
+        $io->inform('Run them by passing --run <migration_id>, e.g. --run ' . $migration_key);
     }
 
     protected function prepareEnvironmentForMigration(
         Environment $environment,
         Migration $migration
-    ) : Environment {
+    ): Environment {
         $preconditions = $migration->getPreconditions($environment);
-        if (count($preconditions) > 0) {
+        if ($preconditions !== []) {
             $objective = new Objective\ObjectiveWithPreconditions(
                 new Objective\NullObjective(),
                 ...$preconditions

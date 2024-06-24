@@ -4,7 +4,21 @@ import TinyWrapper from "./tiny-wrapper.js";
 import TINY_CB from "./tiny-wrapper-cb-types.js";
 import AutoSave from "./auto-save.js";
 
-/* Copyright (c) 1998-2020 ILIAS open source, Extended GPL, see docs/LICENSE */
+/**
+ * This file is part of ILIAS, a powerful learning management system
+ * published by ILIAS open source e-Learning e.V.
+ *
+ * ILIAS is licensed with the GPL-3.0,
+ * see https://www.gnu.org/licenses/gpl-3.0.en.html
+ * You should have received a copy of said license along with the
+ * source code, too.
+ *
+ * If this is not the case or you just want to try ILIAS, you'll find
+ * us at:
+ * https://www.ilias.de
+ * https://github.com/ILIAS-eLearning
+ *
+ *********************************************************************/
 
 
 /**
@@ -386,7 +400,7 @@ export default class ParagraphUI {
 
   cmdExtLink()
   {
-    this.addBBCode('[xln url="http://"]', '[/xln]');
+    this.addBBCode('[xln url="https://"]', '[/xln]');
   }
 
   cmdUserLink()
@@ -425,6 +439,7 @@ export default class ParagraphUI {
     if (fc) {
       this.log("SETTin DROP DOWN BUTTON: " + i)
       fc.firstChild.textContent = ddbtn.textContent + " ";
+      fc.ariaLabel = il.Language.txt('copg_par_format_selection') + ": " + ddbtn.textContent;
     }
     this.tinyWrapper.setParagraphClass(i);
   }
@@ -546,53 +561,6 @@ export default class ParagraphUI {
       il.AdvancedSelectionList.init['char_style_selection']();
     }
     il.copg.editor.reInitUI();
-  }
-
-  // default callback for successfull ajax request, reloads page content
-  pageReloadAjaxSuccess(o)
-  {
-    if(o.responseText !== undefined)
-    {
-      let edit_div = document.getElementById('il_EditPage');
-
-      if (typeof il == 'undefined'){
-        il = o.argument.il;
-      }
-      removeToolbar();
-      $("#ilPageEditTopActionBar").css("visibility", "");
-      $('#il_EditPage').replaceWith(o.responseText);
-      this.reInitUI();
-      il.IntLink.refresh();
-      if (o.argument.osd_text && o.argument.osd_text != "") {
-        OSDNotifier = OSDNotifications({
-          initialNotifications: [{
-            notification_osd_id: 123,
-            valid_until: 0,
-            visible_for: 3,
-            data: {
-              title: "",
-              link: false,
-              iconPath: false,
-              shortDescription: o.argument.osd_text,
-              handlerParams: {
-                osd: {
-                  closable: false
-                }
-              }
-            }
-          }]
-        });
-      }
-    }
-  }
-
-  insertJSAtPlaceholder(cmd_id)
-  {
-    /*
-    clickcmdid = cmd_id;
-    let pl = document.getElementById('CONTENT' + cmd_id);
-    pl.style.display = 'none';
-    doActionForm('cmd[exec]', 'command', 'insert_par', '', 'PageContent', '');*/
   }
 
   ////
@@ -747,6 +715,11 @@ export default class ParagraphUI {
     }
   }
 
+  escape() {
+    const b = document.querySelector("[data-copg-ed-action='save.return']");
+    b.focus();
+  }
+
   initWrapperCallbacks() {
     const wrapper = this.tinyWrapper;
     const parUI = this;
@@ -765,6 +738,11 @@ export default class ParagraphUI {
     wrapper.addCallback(TINY_CB.SWITCH_RIGHT, () => {
       if (pageModel.getCurrentPCName() === "Paragraph") {
         parUI.switchToNext();
+      }
+    });
+    wrapper.addCallback(TINY_CB.ESCAPE, () => {
+      if (pageModel.getCurrentPCName() === "Paragraph") {
+        parUI.escape();
       }
     });
     wrapper.addCallback(TINY_CB.SWITCH_DOWN, () => {
@@ -889,6 +867,10 @@ export default class ParagraphUI {
     const action = this.actionFactory;
     const ef = action.paragraph().editor();
     const tblact = action.table().editor();
+    const ifrm = document.getElementById('tinytarget_ifr');
+    if (ifrm) {
+      ifrm.title = il.Language.txt("copg_edit_iframe_title");
+    }
 
     //#0017152
     $('#tinytarget_ifr').contents().find("html").attr('lang', $('html').attr('lang'));
@@ -1008,13 +990,13 @@ export default class ParagraphUI {
 
   autoSaveStarted() {
     document.querySelector("[data-copg-ed-action='save.return']").disabled = true;
-    document.querySelector("[data-copg-ed-action='component.cancel']").disabled = true;
+    //document.querySelector("[data-copg-ed-action='component.cancel']").disabled = true;
     this.autoSave.displayAutoSave(il.Language.txt("cont_saving"));
   }
 
   autoSaveEnded() {
     document.querySelector("[data-copg-ed-action='save.return']").disabled = false;
-    document.querySelector("[data-copg-ed-action='component.cancel']").disabled = false;
+    //document.querySelector("[data-copg-ed-action='component.cancel']").disabled = false;
     this.autoSave.displayAutoSave("&nbsp;");
   }
 

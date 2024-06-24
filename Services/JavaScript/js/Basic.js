@@ -1,5 +1,19 @@
 
-/* Copyright (c) 1998-2012 ILIAS open source, Extended GPL, see docs/LICENSE */
+/**
+ * This file is part of ILIAS, a powerful learning management system
+ * published by ILIAS open source e-Learning e.V.
+ *
+ * ILIAS is licensed with the GPL-3.0,
+ * see https://www.gnu.org/licenses/gpl-3.0.en.html
+ * You should have received a copy of said license along with the
+ * source code, too.
+ *
+ * If this is not the case or you just want to try ILIAS, you'll find
+ * us at:
+ * https://www.ilias.de
+ * https://github.com/ILIAS-eLearning
+ *
+ *********************************************************************/
 
 /*
    Please note that this file should only contain common Javascript code
@@ -178,27 +192,6 @@ il.Util = {
 		{
 			obj.focus();
 			self.location.hash = id;
-		}
-	},
-	
-	// Set standard screen reader focus
-	setStdScreenReaderFocus: function() {
-		var obj = document.getElementById("il_message_focus");
-		if (obj) {
-			obj.focus();
-			self.location.hash = 'il_message_focus';
-		} else {
-			obj = document.getElementById("il_lm_head");
-			if (obj && self.location.hash == '') {
-				obj.focus();
-				self.location.hash = 'il_lm_head';
-			} else {
-				obj = document.getElementById("il_mhead_t_focus");
-				if (obj && self.location.hash == '') {
-					obj.focus();
-					self.location.hash = 'il_mhead_t_focus';
-				}
-			}
 		}
 	},
 	
@@ -576,18 +569,22 @@ il.UICore = {
 		var tabs = $('#ilTab.ilCollapsable'), tabsHeight, count, children, collapsed;
 		if (tabs) {
 			tabsHeight = tabs.innerHeight();
-			if (tabsHeight >= 50) {
-				if (tabsHeight > 50) {
-					$('#ilLastTab a').removeClass("ilNoDisplay");
-				}
+			let more_than_two_lines;
+			more_than_two_lines = tabsHeight >= 50;
+			if (more_than_two_lines) {
+				$('#ilLastTab a').removeClass('ilNoDisplay');
 				// as long as we have two lines...
-				while (tabsHeight > 50) {
+				while (more_than_two_lines) {
 					children = tabs.children('li:not(:last-child)');
 					count = children.length;
 
 					// ...put last child into collapsed drop down
 					$(children[count-1]).prependTo('#ilTabDropDown');
-					tabsHeight = tabs.innerHeight();
+					if(count == 0) {
+						more_than_two_lines = false;
+					} else {
+						more_than_two_lines = tabs.innerHeight() >= 50;
+					}
 				}
 			} else {
 				// as long as we have one line...
@@ -665,30 +662,6 @@ il.UICore = {
 			}
 		});
 		return;
-		/*
-		var n = document.getElementById('ilRightPanel');
-		if (!n) {
-			var b = $("body");
-			b.append("<div class='yui-skin-sam'><div id='ilRightPanel' class='ilOverlay ilRightPanel'>" +
-				"&nbsp;</div>");
-			var n = document.getElementById('ilRightPanel');
-			il.Overlay.add("ilRightPanel", {yuicfg: {}});
-			il.Overlay.show(null, "ilRightPanel");
-		}
-		else
-		{
-			il.Overlay.show(null, "ilRightPanel");
-		}
-		
-		il.Overlay.subscribe("ilRightPanel", "hide", function () {il.UICore.unloadWrapperFromRightPanel();});
-		
-		il.UICore.setRightPanelContent("");
-
-		n = document.getElementById('ilRightPanel');
-		n.style.width = '500px';
-		n.style.height = '100%';
-
-		 */
 	},
 	
 	setRightPanelContent: function (c) {
@@ -999,38 +972,6 @@ il.Language = {
 ////
 //// The following methods should be moved to the corresponding components
 ////
-
-/**
- * Opens a chat window
- *
- * @param   object	the link which was clicked
- * @param   int		desired width of the new window
- * @param   int		desired height of the new window
- */
-function openChatWindow(oLink, width, height)
-{
-	if(width == null)
-	{
-		width = screen.availWidth;
-	}
-	leftPos = (screen.availWidth / 2)- (width / 2);	
-	
-	if(height == null)
-	{
-		height = screen.availHeight;
-	}
-	topPos = (screen.availHeight / 2)- (height / 2);				
-
-	oChatWindow = window.open(
-		oLink.href, 
-		oLink.target, 
-		'width=' + width + ',height=' + height + ',left=' + leftPos + ',top=' + topPos +
-		',resizable=yes,scrollbars=yes,status=yes,toolbar=yes,menubar=yes,location=yes'
-	);
-
-	oChatWindow.focus();
-}
-
 
 function startSAHS(SAHSurl, SAHStarget, SAHSopenMode, SAHSwidth, SAHSheight)
 {

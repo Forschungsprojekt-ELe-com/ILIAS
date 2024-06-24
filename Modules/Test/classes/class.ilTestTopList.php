@@ -1,5 +1,20 @@
 <?php
-/* Copyright (c) 1998-2015 ILIAS open source, Extended GPL, see docs/LICENSE */
+
+/**
+ * This file is part of ILIAS, a powerful learning management system
+ * published by ILIAS open source e-Learning e.V.
+ *
+ * ILIAS is licensed with the GPL-3.0,
+ * see https://www.gnu.org/licenses/gpl-3.0.en.html
+ * You should have received a copy of said license along with the
+ * source code, too.
+ *
+ * If this is not the case or you just want to try ILIAS, you'll find
+ * us at:
+ * https://www.ilias.de
+ * https://github.com/ILIAS-eLearning
+ *
+ *********************************************************************/
 
 /**
  * Class ilTestTopList
@@ -27,7 +42,7 @@ class ilTestTopList
      * @param int $a_user_id
      * @return array
      */
-    public function getUserToplistByWorkingtime(int $a_test_ref_id, int $a_user_id) : array
+    public function getUserToplistByWorkingtime(int $a_test_ref_id, int $a_user_id): array
     {
         $result = $this->db->query(
             '
@@ -114,7 +129,7 @@ class ilTestTopList
 				AND tst_active.user_fi = ' . $this->db->quote($a_user_id, 'integer') . '
 			)
 			ORDER BY workingtime DESC
-			LIMIT 0,3
+			LIMIT 0, ' . $this->db->quote($this->object->getHighscoreTopNum(), 'integer') . '
 		)
 		UNION(
 			SELECT tst_result_cache.*, round(reached_points/max_points*100) as percentage,
@@ -141,10 +156,10 @@ class ilTestTopList
 				AND tst_active.user_fi = ' . $this->db->quote($a_user_id, 'integer') . '
 			)
 			ORDER BY workingtime DESC
-			LIMIT 0,3
+			LIMIT 0, ' . $this->db->quote($this->object->getHighscoreTopNum(), 'integer') . '
 		)
 		ORDER BY workingtime ASC
-		LIMIT 0, 7
+		LIMIT 0, ' . $this->db->quote($this->object->getHighscoreTopNum(), 'integer') . '
 		'
         );
 
@@ -153,7 +168,7 @@ class ilTestTopList
         $data = [];
 
         if ($i > 1) {
-            $item = ['Rank' => '...'];
+            $item = $this->buildEmptyItem();
             $data[] = $item;
         }
 
@@ -164,7 +179,7 @@ class ilTestTopList
         }
 
         if ($number_total > $i) {
-            $item = ['Rank' => '...'];
+            $item = $this->buildEmptyItem();
             $data[] = $item;
         }
 
@@ -176,7 +191,7 @@ class ilTestTopList
      * @param int $a_user_id
      * @return array
      */
-    public function getGeneralToplistByPercentage(int $a_test_ref_id, int $a_user_id) : array
+    public function getGeneralToplistByPercentage(int $a_test_ref_id, int $a_user_id): array
     {
         $this->db->setLimit($this->object->getHighscoreTopNum(), 0);
         $result = $this->db->query(
@@ -210,7 +225,7 @@ class ilTestTopList
      * @param int $a_user_id
      * @return array
      */
-    public function getGeneralToplistByWorkingtime(int $a_test_ref_id, int $a_user_id) : array
+    public function getGeneralToplistByWorkingtime(int $a_test_ref_id, int $a_user_id): array
     {
         $this->db->setLimit($this->object->getHighscoreTopNum(), 0);
         $result = $this->db->query(
@@ -243,7 +258,7 @@ class ilTestTopList
      * @param int $a_user_id
      * @return array
      */
-    public function getUserToplistByPercentage(int $a_test_ref_id, int $a_user_id) : array
+    public function getUserToplistByPercentage(int $a_test_ref_id, int $a_user_id): array
     {
         $result = $this->db->query(
             '
@@ -330,7 +345,7 @@ class ilTestTopList
 				AND tst_active.user_fi = ' . $this->db->quote($a_user_id, 'integer') . '
 			)
 			ORDER BY round(reached_points/max_points*100) ASC
-			LIMIT 0,3
+			LIMIT 0, ' . $this->db->quote($this->object->getHighscoreTopNum(), 'integer') . '
 		)
 		UNION(
 			SELECT tst_result_cache.*, round(reached_points/max_points*100) as percentage,
@@ -357,19 +372,20 @@ class ilTestTopList
 				AND tst_active.user_fi = ' . $this->db->quote($a_user_id, 'integer') . '
 			)
 			ORDER BY round(reached_points/max_points*100) ASC
-			LIMIT 0,3
+			LIMIT 0, ' . $this->db->quote($this->object->getHighscoreTopNum(), 'integer') . '
 		)
 		ORDER BY round(reached_points/max_points*100) DESC, tstamp ASC
-		LIMIT 0, 7
+		LIMIT 0, ' . $this->db->quote($this->object->getHighscoreTopNum(), 'integer') . '
 		'
         );
 
-        $i = $own_placement - (($better_participants >= 3) ? 3 : $better_participants);
+        $i = $own_placement - ($better_participants >= $this->object->getHighscoreTopNum()
+            ? $this->object->getHighscoreTopNum() : $better_participants);
 
         $data = [];
 
         if ($i > 1) {
-            $item = ['Rank' => '...'];
+            $item = $this->buildEmptyItem();
             $data[] = $item;
         }
 
@@ -380,7 +396,7 @@ class ilTestTopList
         }
 
         if ($number_total > $i) {
-            $item = ['Rank' => '...'];
+            $item = $this->buildEmptyItem();
             $data[] = $item;
         }
 
@@ -394,7 +410,7 @@ class ilTestTopList
      * @return array
      * @throws ilDateTimeException
      */
-    private function getResultTableRow(array $row, int $i, int $usrId) : array
+    private function getResultTableRow(array $row, int $i, int $usrId): array
     {
         $item = [];
 
@@ -435,16 +451,30 @@ class ilTestTopList
      * @param int $seconds
      * @return string
      */
-    private function formatTime(int $seconds) : string
+    private function formatTime(int $seconds): string
     {
         $retval = '';
-        $hours = intval(intval($seconds) / 3600);
+        $hours = intval($seconds / 3600);
         $retval .= str_pad($hours, 2, "0", STR_PAD_LEFT) . ":";
-        $minutes = intval(($seconds / 60) % 60);
+        $minutes = ($seconds / 60) % 60;
         $retval .= str_pad($minutes, 2, "0", STR_PAD_LEFT) . ":";
-        $seconds = intval($seconds % 60);
+        $seconds = $seconds % 60;
         $retval .= str_pad($seconds, 2, "0", STR_PAD_LEFT);
 
         return $retval;
+    }
+
+    private function buildEmptyItem(): array
+    {
+        return [
+            'rank' => '...' ,
+            'is_actor' => false,
+            'participant' => '',
+            'achieved' => '',
+            'score' => '',
+            'percentage' => '',
+            'hints' => '',
+            'time' => ''
+        ];
     }
 }

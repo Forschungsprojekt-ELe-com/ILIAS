@@ -1,11 +1,23 @@
 <?php
 
-/* Copyright (c) 1998-2012 ILIAS open source, Extended GPL, see docs/LICENSE */
+/**
+ * This file is part of ILIAS, a powerful learning management system
+ * published by ILIAS open source e-Learning e.V.
+ *
+ * ILIAS is licensed with the GPL-3.0,
+ * see https://www.gnu.org/licenses/gpl-3.0.en.html
+ * You should have received a copy of said license along with the
+ * source code, too.
+ *
+ * If this is not the case or you just want to try ILIAS, you'll find
+ * us at:
+ * https://www.ilias.de
+ * https://github.com/ILIAS-eLearning
+ *
+ *********************************************************************/
 
 use ILIAS\DI\Container;
-
-include_once("./Services/Object/classes/class.ilObjectAccess.php");
-require_once('./Services/WebAccessChecker/interfaces/interface.ilWACCheckingClass.php');
+use ILIAS\FileUpload\MimeType;
 
 /**
  * Access class for file objects.
@@ -16,12 +28,17 @@ require_once('./Services/WebAccessChecker/interfaces/interface.ilWACCheckingClas
  */
 class ilObjFileAccess extends ilObjectAccess implements ilWACCheckingClass
 {
-
     /**
-     * @param $obj_id
-     * @return bool
+     * Contains an array of extensions separated by space.
+     * Since this array is needed for every file object displayed on a
+     * repository page, we only create it once, and cache it here.
      */
-    protected function checkAccessToObjectId($obj_id)
+    protected static array $inline_file_extensions = [];
+
+    protected static array $preload_list_gui_data = [];
+
+
+    protected function checkAccessToObjectId(int $obj_id): bool
     {
         global $DIC;
         $ilAccess = $DIC['ilAccess'];
@@ -37,36 +54,22 @@ class ilObjFileAccess extends ilObjectAccess implements ilWACCheckingClass
         return false;
     }
 
-    /**
-     * @param \ilWACPath $ilWACPath
-     * @return bool
-     */
-    public function canBeDelivered(ilWACPath $ilWACPath)
+    public function canBeDelivered(ilWACPath $ilWACPath): bool
     {
         switch ($ilWACPath->getSecurePathId()) {
             case 'previews':
-                $re = '/\/previews\/[\d\/]{0,}\/preview_([\d]{0,})\//uU';
+                preg_match('/\/previews\/[\d\/]{0,}\/preview_([\d]{0,})\//uU', $ilWACPath->getPath(), $matches);
+                $obj_id = (int) $matches[1];
+                break;
+            default:
+                $obj_id = -1;
                 break;
         }
-        preg_match($re, $ilWACPath->getPath(), $matches);
 
-        return $this->checkAccessToObjectId($matches[1]);
+        return $this->checkAccessToObjectId($obj_id);
     }
 
 
-
-    // BEGIN WebDAV cache inline file extensions
-
-    /**
-     * Contains an array of extensions separated by space.
-     * Since this array is needed for every file object displayed on a
-     * repository page, we only create it once, and cache it here.
-     * @see function _isFileInline
-     */
-    protected static $_inlineFileExtensionsArray;
-    // END WebDAV cache inline file extensions
-
-    protected static $preload_list_gui_data; // [array]
 
     /**
      * get commands
@@ -77,8 +80,9 @@ class ilObjFileAccess extends ilObjectAccess implements ilWACCheckingClass
      *        array("permission" => "read", "cmd" => "view", "lang_var" => "show"),
      *        array("permission" => "write", "cmd" => "edit", "lang_var" => "edit"),
      *    );
+     * @return array<int, mixed[]>
      */
-    public static function _getCommands()
+    public static function _getCommands(): array
     {
         $commands = array();
         $commands[] = array(
@@ -86,6 +90,11 @@ class ilObjFileAccess extends ilObjectAccess implements ilWACCheckingClass
             "cmd" => "sendfile",
             "lang_var" => "download",
             "default" => true,
+        );
+        $commands[] = array(
+            "permission" => "write",
+            "cmd" => ilFileVersionsGUI::CMD_UNZIP_CURRENT_REVISION,
+            "lang_var" => "unzip",
         );
         $commands[] = array(
             "permission" => "write",
@@ -104,175 +113,47 @@ class ilObjFileAccess extends ilObjectAccess implements ilWACCheckingClass
     /**
      * check whether goto script will succeed
      */
-    public static function _checkGoto($a_target)
+    public static function _checkGoto(string $a_target): bool
     {
         global $DIC;
-        $ilAccess = $DIC['ilAccess'];
+        $access = $DIC['ilAccess'];
 
-        $t_arr = explode("_", $a_target);
+        $target_parts = explode("_", $a_target);
 
         // personal workspace context: do not force normal login
-        if (isset($t_arr[2]) && $t_arr[2] == "wsp") {
-            include_once "Services/PersonalWorkspace/classes/class.ilSharedResourceGUI.php";
-
-            return ilSharedResourceGUI::hasAccess($t_arr[1]);
+        if (isset($target_parts[2]) && $target_parts[2] === "wsp") {
+            return ilSharedResourceGUI::hasAccess($target_parts[1]);
         }
 
-        if ($t_arr[0] != "file" || ((int) $t_arr[1]) <= 0) {
+        $type = $target_parts[0]??null;
+        $ref_id = (int) ($target_parts[1] ?? 0);
+        if ($type !== "file" || $ref_id <= 0) {
             return false;
         }
-
-        if ($ilAccess->checkAccess("visible", "", $t_arr[1])
-            || $ilAccess->checkAccess("read", "", $t_arr[1])
-        ) {
-            return true;
-        }
-
-        return false;
+        return $access->checkAccess("visible", "", $ref_id)
+            || $access->checkAccess("read", "", $ref_id);
     }
 
     /**
-     * looks up the file_data for the file object with the specified object id
-     * as an associative array.
-     */
-    public static function _lookupFileData($a_id)
-    {
-        global $DIC;
-        $ilDB = $DIC['ilDB'];
-
-        $q = "SELECT * FROM file_data WHERE file_id = " . $ilDB->quote($a_id, 'integer');
-        $r = $ilDB->query($q);
-        $row = $r->fetchRow(ilDBConstants::FETCHMODE_ASSOC);
-
-        return $row;
-    }
-
-    /**
-     * lookup version
-     */
-    public static function _lookupVersion($a_id)
-    {
-        global $DIC;
-        $ilDB = $DIC['ilDB'];
-
-        $q = "SELECT version FROM file_data WHERE file_id = " . $ilDB->quote($a_id, 'integer');
-        $r = $ilDB->query($q);
-        $row = $r->fetchRow(ilDBConstants::FETCHMODE_OBJECT);
-
-        $striped = ilUtil::stripSlashes($row->version);
-
-        return $striped > 0 ? $striped : 1;
-    }
-
-    /**
-     * @param $a_id
-     * @return int
+     * @param int $a_id
      * @deprecated
      */
-    public static function _lookupFileSize($a_id) // FSX mus use storage in future
+    public static function _lookupFileSize(int $a_id, bool $by_reference = true): int
     {
-        global $DIC;
-        $ilDB = $DIC['ilDB'];
+        try {
+            $info_repo = new ilObjFileInfoRepository();
+            if ($by_reference) {
+                $info = $info_repo->getByRefId($a_id);
+            } else {
+                $info = $info_repo->getByObjId($a_id);
+            }
 
-        $q = "SELECT file_size FROM file_data WHERE file_id = " . $ilDB->quote($a_id, 'integer');
-        $r = $ilDB->query($q);
-        $row = $r->fetchRow(ilDBConstants::FETCHMODE_OBJECT);
-
-        $size = $row->file_size;
-
-        return $size;
-    }
-
-    /**
-     * Looks up the file size by retrieving it from the filesystem.
-     * This function runs much slower than _lookupFileSize()! Use this
-     * function only, to update the data in the database. For example, if
-     * the file size in the database has become inconsistent for some reason.
-     */
-    public static function _lookupFileSizeFromFilesystem($a_id)
-    {
-        global $DIC;
-        $ilDB = $DIC['ilDB'];
-
-        $q = "SELECT * FROM file_data WHERE file_id = " . $ilDB->quote($a_id, 'integer');
-        $r = $ilDB->query($q);
-        $row = $r->fetchRow(ilDBConstants::FETCHMODE_OBJECT);
-
-        require_once('Modules/File/classes/class.ilFSStorageFile.php');
-        $fss = new ilFSStorageFile($a_id);
-        $file = $fss->getAbsolutePath() . '/' . $row->file_name;
-
-        if (@!is_file($file)) {
-            $version_subdir = "/" . sprintf("%03d", ilObjFileAccess::_lookupVersion($a_id));
-            $file = $fss->getAbsolutePath() . '/' . $version_subdir . '/' . $row->file_name;
+            return $info->getFileSize()->inBytes();
+        } catch (Throwable $t) {
+            return 0;
         }
-
-        if (is_file($file)) {
-            $size = filesize($file);
-        } else {
-            $size = 0;
-        }
-
-        return $size;
     }
 
-    /**
-     * lookup suffix
-     */
-    public static function _lookupSuffix($a_id)
-    {
-        include_once('Modules/File/classes/class.ilFSStorageFile.php');
-
-        global $DIC;
-        $ilDB = $DIC['ilDB'];
-
-        // BEGIN WebDAV: Filename suffix is determined by file title
-        $q = "SELECT * FROM object_data WHERE obj_id = " . $ilDB->quote($a_id, 'integer');
-        $r = $ilDB->query($q);
-        $row = $r->fetchRow(ilDBConstants::FETCHMODE_OBJECT);
-        require_once 'Modules/File/classes/class.ilObjFile.php';
-
-        return self::_getFileExtension($row->title);
-        // END WebDAV: Filename suffix is determined by file title
-    }
-
-    /**
-     * Returns the number of bytes used on the harddisk by the file object
-     * with the specified object id.
-     * @param int object id of a file object.
-     */
-    public static function _lookupDiskUsage($a_id)
-    {
-        include_once('Modules/File/classes/class.ilFSStorageFile.php');
-        $fileStorage = new ilFSStorageFile($a_id);
-        $dir = $fileStorage->getAbsolutePath();
-
-        return ilUtil::dirsize($dir);
-    }
-
-    // BEGIN WebDAV: Get file extension, determine if file is inline, guess file type.
-
-    /**
-     * Returns true, if the specified file shall be displayed inline in the browser.
-     */
-    public static function _isFileInline($a_file_name)
-    {
-        if (self::$_inlineFileExtensionsArray
-            === null
-        ) {        // the === makes a huge difference, if the array is empty
-            $settings = new ilSetting('file_access');
-            self::$_inlineFileExtensionsArray = preg_split('/ /', $settings->get('inline_file_extensions'), -1,
-                PREG_SPLIT_NO_EMPTY);
-        }
-        $extension = self::_getFileExtension($a_file_name);
-
-        return in_array($extension, self::$_inlineFileExtensionsArray);
-    }
-
-    public function isMigrated():bool
-    {
-
-    }
 
     /**
      * Gets the file extension of the specified file name.
@@ -280,9 +161,8 @@ class ilObjFileAccess extends ilObjectAccess implements ilWACCheckingClass
      * For example, for the file name "HELLO.MP3", this function returns "mp3".
      * A file name extension can have multiple parts. For the file name
      * "hello.tar.gz", this function returns "gz".
-     * @param string $a_file_name The file name
      */
-    public static function _getFileExtension($a_file_name)
+    public static function _getFileExtension(string $a_file_name): string
     {
         if (preg_match('/\.([a-z0-9]+)\z/i', $a_file_name, $matches) == 1) {
             return strtolower($matches[1]);
@@ -299,13 +179,12 @@ class ilObjFileAccess extends ilObjectAccess implements ilWACCheckingClass
      * - Filenames starting with '~$' are temporary Windows files
      * - The file "Thumbs.db" is a hidden Windows file
      */
-    public static function _isFileHidden($a_file_name)
+    public static function _isFileHidden(string $a_file_name): bool
     {
         return substr($a_file_name, 0, 1) == '.' || substr($a_file_name, -1, 1) == '~'
             || substr($a_file_name, 0, 2) == '~$'
             || $a_file_name == 'Thumbs.db';
     }
-    // END WebDAV: Get file extension, determine if file is inline, guess file type.
 
     /**
      * Appends the text " - Copy" to a filename in the language of
@@ -327,7 +206,7 @@ class ilObjFileAccess extends ilObjectAccess implements ilWACCheckingClass
      * - Calling ilObjFileAccess::_appendCopyToTitle('Hello - Copy (3).txt', null)
      *   returns: "Hello - Copy (4).txt".
      */
-    public static function _appendNumberOfCopyToFilename($a_file_name, $nth_copy = null, $a_handle_extension = false)
+    public static function _appendNumberOfCopyToFilename($a_file_name, $nth_copy = null, $a_handle_extension = false): string
     {
         global $DIC;
         $lng = $DIC['lng'];
@@ -395,75 +274,20 @@ class ilObjFileAccess extends ilObjectAccess implements ilWACCheckingClass
 
     /**
      * Gets the permanent download link for the file.
-     * @param int $ref_id
-     * @return string
      */
-    public static function _getPermanentDownloadLink($ref_id)
+    public static function _getPermanentDownloadLink(int $ref_id): string
     {
         return ilLink::_getStaticLink($ref_id, "file", true, "_download");
     }
 
     /**
-     * @param int[] $a_obj_ids
-     * @param int[] $a_ref_ids
+     * @param int[] $obj_ids
+     * @param int[] $ref_ids
      */
-    public static function _preloadData($a_obj_ids, $a_ref_ids) : void
+    public static function _preloadData(array $obj_ids, array $ref_ids): void
     {
-        global $DIC;
-
-        $DIC->language()->loadLanguageModule('file');
-        /**
-         * @var $DIC Container
-         */
-
-        self::$preload_list_gui_data = array();
-
-        $set = $DIC->database()->query("SELECT obj_id,max(hdate) latest" . " FROM history"
-            . " WHERE obj_type = " . $DIC->database()->quote("file", "text") . " AND "
-            . $DIC->database()->in("obj_id", $a_obj_ids, "", "integer") . " GROUP BY obj_id");
-        while ($row = $DIC->database()->fetchAssoc($set)) {
-            self::$preload_list_gui_data[$row["obj_id"]]["date"] = $row["latest"];
-        }
-
-        $set = $DIC->database()->query("SELECT file_size, version, file_id, page_count, rid" . " FROM file_data" . " WHERE "
-            . $DIC->database()->in("file_id", $a_obj_ids, "", "integer"));
-        while ($row = $DIC->database()->fetchAssoc($set)) {
-            self::$preload_list_gui_data[$row["file_id"]]["size"] = $row["file_size"];
-            self::$preload_list_gui_data[$row["file_id"]]["version"] = $row["version"];
-            self::$preload_list_gui_data[$row["file_id"]]["page_count"] = $row["page_count"];
-            self::$preload_list_gui_data[$row["file_id"]]["rid"] = $row["rid"];
-        }
-
-        $res = $DIC->database()->query("SELECT rid, file_id  FROM file_data WHERE rid IS NOT NULL AND rid !='' AND " . $DIC->database()->in('file_id',
-                $a_obj_ids, false,
-                'integer'));
-        $rids = [];
-        while ($row = $DIC->database()->fetchObject($res)) {
-            $rids[$row->file_id] = $row->rid;
-        }
-        $DIC->resourceStorage()->preload($rids);
-
-        foreach ($rids as $file_id => $rid) {
-            if ($id = $DIC->resourceStorage()->manage()->find($rid)) {
-                $max = $DIC->resourceStorage()->manage()->getResource($id)->getCurrentRevision();
-                self::$preload_list_gui_data[$file_id]["version"] = $max->getVersionNumber();
-                self::$preload_list_gui_data[$file_id]["size"] = $max->getInformation()->getSize();
-                self::$preload_list_gui_data[$file_id]["date"] = $max->getInformation()->getCreationDate()->format(DATE_ATOM);
-            }
-        }
-
-
+        $info = new ilObjFileInfoRepository();
+        $info->preloadData($obj_ids);
     }
 
-
-    /**
-     * @param $a_obj_id
-     * @return array
-     */
-    public static function getListGUIData($a_obj_id)
-    {
-        if (isset(self::$preload_list_gui_data[$a_obj_id])) {
-            return self::$preload_list_gui_data[$a_obj_id];
-        }
-    }
 }

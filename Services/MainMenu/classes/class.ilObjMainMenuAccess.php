@@ -16,29 +16,19 @@
  *
  *********************************************************************/
 
+declare(strict_types=1);
+
 /**
  * Class ilObjMainMenuAccess
  * @author Fabian Schmid <fs@studer-raimann.ch>
  */
-class ilObjMainMenuAccess extends ilObjectAccess
+class ilObjMainMenuAccess extends ilObjectAccess implements ilMainMenuAccess
 {
-
-    /**
-     * @var \ILIAS\DI\HTTPServices
-     */
-    private $http;
-    /**
-     * @var ilObjUser
-     */
-    private $user;
-    /**
-     * @var ilRbacSystem
-     */
-    private $rbacsystem;
-    /**
-     * @var ilRbacReview
-     */
-    private $rbacreview;
+    private ilObjUser $user;
+    private ilRbacSystem $rbacsystem;
+    private ilRbacReview $rbacreview;
+    private ?int $ref_id;
+    private ?array $global_roles = null;
 
     /**
      * ilObjMainMenuAccess constructor.
@@ -49,14 +39,16 @@ class ilObjMainMenuAccess extends ilObjectAccess
         $this->rbacreview = $DIC->rbac()->review();
         $this->rbacsystem = $DIC->rbac()->system();
         $this->user = $DIC->user();
-        $this->http = $DIC->http();
+        $this->ref_id = $DIC->http()->wrapper()->query()->has('ref_id')
+            ? $DIC->http()->wrapper()->query()->retrieve('ref_id', $DIC->refinery()->kindlyTo()->int())
+            : null;
     }
 
     /**
      * @param string $permission
      * @throws ilException
      */
-    public function checkAccessAndThrowException(string $permission) : void
+    public function checkAccessAndThrowException(string $permission): void
     {
         if (!$this->hasUserPermissionTo($permission)) {
             throw new ilException('Permission denied');
@@ -67,16 +59,18 @@ class ilObjMainMenuAccess extends ilObjectAccess
      * @param string $permission
      * @return bool
      */
-    public function hasUserPermissionTo(string $permission) : bool
+    public function hasUserPermissionTo(string $permission): bool
     {
-        return (bool) $this->rbacsystem->checkAccess($permission, $this->http->request()->getQueryParams()['ref_id']);
+        if ($this->ref_id === null) {
+            return false;
+        }
+        return $this->rbacsystem->checkAccess($permission, $this->ref_id);
     }
-
 
     /**
      * @return array
      */
-    public function getGlobalRoles() : array
+    public function getGlobalRoles(): array
     {
         $global_roles = $this->rbacreview->getRolesForIDs(
             $this->rbacreview->getGlobalRoles(),
@@ -91,15 +85,14 @@ class ilObjMainMenuAccess extends ilObjectAccess
         return $roles;
     }
 
-    public function isCurrentUserAllowedToSeeCustomItem(ilMMCustomItemStorage $item, Closure $current) : Closure
+    public function isCurrentUserAllowedToSeeCustomItem(ilMMCustomItemStorage $item, Closure $current): Closure
     {
-        return function () use ($item, $current) : bool {
-            $roles_of_current_user = $this->rbacreview->assignedGlobalRoles($this->user->getId());
+        return function () use ($item, $current): bool {
             if (!$item->hasRoleBasedVisibility()) {
                 return $current();
             }
-            if ($item->hasRoleBasedVisibility() && !empty($item->getGlobalRoleIDs())) {
-                foreach ($roles_of_current_user as $role_of_current_user) {
+            if (!empty($item->getGlobalRoleIDs())) {
+                foreach ($this->resolveUsersGlobalRoles() as $role_of_current_user) {
                     if (in_array((int) $role_of_current_user, $item->getGlobalRoleIDs(), true)) {
                         return $current();
                     }
@@ -107,5 +100,11 @@ class ilObjMainMenuAccess extends ilObjectAccess
             }
             return false;
         };
+    }
+
+    private function resolveUsersGlobalRoles(): array
+    {
+        return $this->global_roles
+            ?? $this->global_roles = $this->rbacreview->assignedGlobalRoles($this->user->getId());
     }
 }

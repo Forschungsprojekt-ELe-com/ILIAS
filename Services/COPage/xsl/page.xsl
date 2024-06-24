@@ -86,6 +86,8 @@
 <xsl:param name="enable_html_mob"/>
 <xsl:param name="enable_href"/>
 <xsl:param name="page_perma_link"/>
+<xsl:param name="activated_protection"/>
+<xsl:param name="protection_text"/>
 <xsl:param name="acc_save_url"/>
 
 <xsl:template match="PageObject">
@@ -138,7 +140,7 @@
 				<div class="ilc_page_fn_Footnote">
 				<a>
 				<xsl:attribute name="name">fn<xsl:number count="Footnote" level="any"/></xsl:attribute>
-				<span class="ilc_text_inline_Strong">[<xsl:number count="Footnote" level="any"/>] </span>
+				<span>[<xsl:number count="Footnote" level="any"/>] </span>
 				</a>
 				<xsl:comment>ParStart</xsl:comment>
 				<xsl:apply-templates />
@@ -263,14 +265,14 @@
 		</xsl:if>
 		<xsl:if test="name(../..) = 'InteractiveImage'">
 			<xsl:if test="$map_edit_mode != 'get_coords'">
-				<script type="text/javascript">
-					il.Util.addOnLoad(function() {il.COPagePres.addIIMArea(
-						{area_id: 'marea_<xsl:value-of select = "$pg_id"/>_<xsl:number count="MapArea" level="any" />',
-						iim_id: '<xsl:value-of select = "$pg_id"/>_<xsl:number count="InteractiveImage" level="any" />',
-						tr_nr: '<xsl:value-of select = "@Id" />',
-						title: '<xsl:value-of select = "ExtLink[1]"/>'
-					})});
-				</script>
+				<span style="display:none;">
+					<xsl:attribute name="data-copg-iim-data-type">area</xsl:attribute>
+					<xsl:attribute name="data-copg-iim-area-id">marea_<xsl:value-of select = "$pg_id"/>_<xsl:number count="MapArea" level="any" /></xsl:attribute>
+					<xsl:attribute name="data-copg-iim-id"><xsl:value-of select = "$pg_id"/>_<xsl:number count="InteractiveImage" level="any" /></xsl:attribute>
+					<xsl:attribute name="data-copg-iim-tr-nr"><xsl:value-of select = "@Id" /></xsl:attribute>
+					<xsl:attribute name="data-copg-iim-title"><xsl:value-of select = "ExtLink[1]"/></xsl:attribute>
+					<xsl:comment>Break</xsl:comment>
+				</span>
 			</xsl:if>
 		</xsl:if>
 	</xsl:for-each>
@@ -278,10 +280,10 @@
 
 <!-- Anchor -->
 <xsl:template match="Anchor">
-<a>
-<xsl:attribute name="name"><xsl:value-of select="@Name"/></xsl:attribute>
+<span>
+<xsl:attribute name="id">copganc_<xsl:value-of select="@Name"/></xsl:attribute>
 <xsl:apply-templates/>
-</a>
+</span>
 </xsl:template>
 
 <!-- PageContent -->
@@ -2001,7 +2003,10 @@
 	<xsl:if test="@Class">ilc_media_cont_<xsl:value-of select="@Class"/></xsl:if>
 	<xsl:if test="not(@Class)">ilc_media_cont_MediaContainer</xsl:if>
 	</xsl:variable>
-
+	<xsl:variable name="captionclass">
+		<xsl:if test="@CaptionClass">ilc_media_caption_<xsl:value-of select="@CaptionClass"/></xsl:if>
+		<xsl:if test="not(@CaptionClass)">ilc_media_caption_MediaCaption</xsl:if>
+	</xsl:variable>
 
 	<xsl:for-each select="../MediaAliasItem[@Purpose = $curPurpose]">
 
@@ -2187,8 +2192,9 @@
 			</div>
 			<!-- mob caption -->
 			<xsl:choose>			<!-- derive -->
-				<xsl:when test="count(../MediaAliasItem[@Purpose=$curPurpose]/Caption[1]) != 0">
-					<figcaption><xsl:attribute name="style"><xsl:value-of select="$captiondisplay"/></xsl:attribute><div class="ilc_media_caption_MediaCaption">
+				<xsl:when test="count(../MediaAliasItem[@Purpose=$curPurpose]/Caption[1]) != 0 and ../MediaAliasItem[@Purpose=$curPurpose]/Caption[1] != ''">
+					<figcaption><xsl:attribute name="style"><xsl:value-of select="$captiondisplay"/></xsl:attribute><div>
+						<xsl:attribute name="class"><xsl:value-of select="$captionclass"/></xsl:attribute>
 					<xsl:call-template name="FullscreenLink">
 						<xsl:with-param name="cmobid" select="$cmobid"/>
 					</xsl:call-template>
@@ -2196,7 +2202,8 @@
 					</div></figcaption>
 				</xsl:when>
 				<xsl:when test="count(//MediaObject[@Id=$cmobid]/MediaItem[@Purpose=$curPurpose]/Caption[1]) != 0">
-					<figcaption><xsl:attribute name="style"><xsl:value-of select="$captiondisplay"/></xsl:attribute><div class="ilc_media_caption_MediaCaption">
+					<figcaption><xsl:attribute name="style"><xsl:value-of select="$captiondisplay"/></xsl:attribute><div>
+						<xsl:attribute name="class"><xsl:value-of select="$captionclass"/></xsl:attribute>
 					<xsl:call-template name="FullscreenLink">
 						<xsl:with-param name="cmobid" select="$cmobid"/>
 					</xsl:call-template>
@@ -2205,7 +2212,8 @@
 				</xsl:when>
 				<xsl:otherwise>
 					<xsl:if test="count(../MediaAliasItem[@Purpose='Fullscreen']) = 1">
-						<figcaption><xsl:attribute name="style"><xsl:value-of select="$captiondisplay"/></xsl:attribute><div class="ilc_media_caption_MediaCaption">
+						<figcaption><xsl:attribute name="style"><xsl:value-of select="$captiondisplay"/></xsl:attribute><div>
+							<xsl:attribute name="class"><xsl:value-of select="$captionclass"/></xsl:attribute>
 						<xsl:call-template name="FullscreenLink">
 							<xsl:with-param name="cmobid" select="$cmobid"/>
 						</xsl:call-template>
@@ -2526,7 +2534,7 @@
 
 			<object>
 				<xsl:attribute name="classid">clsid:D27CDB6E-AE6D-11cf-96B8-444553540000</xsl:attribute>
-				<xsl:attribute name="codebase">http://active.macromedia.com/flash2/cabs/swflash.cab#version=4,0,0,0</xsl:attribute>
+				<xsl:attribute name="codebase">https://active.macromedia.com/flash2/cabs/swflash.cab#version=4,0,0,0</xsl:attribute>
 				<xsl:attribute name="ID"><xsl:value-of select="$data"/></xsl:attribute>
 				<xsl:if test="$width != ''">
 					<xsl:attribute name="width"><xsl:value-of select="$width"/></xsl:attribute>
@@ -2560,7 +2568,7 @@
 						<xsl:attribute name="height"><xsl:value-of select="$height"/></xsl:attribute>
 					</xsl:if>
 					<xsl:attribute name="type">application/x-shockwave-flash</xsl:attribute>
-					<xsl:attribute name="pluginspage">http://www.macromedia.com/shockwave/download/index.cgi?P1_Prod_Version=ShockwaveFlash</xsl:attribute>
+					<xsl:attribute name="pluginspage">https://www.macromedia.com/shockwave/download/index.cgi?P1_Prod_Version=ShockwaveFlash</xsl:attribute>
 					<xsl:attribute name="base"><xsl:value-of select="$base"/></xsl:attribute>
 					<xsl:call-template name="MOBParams">
 						<xsl:with-param name="curPurpose" select="$curPurpose" />
@@ -2681,10 +2689,24 @@
 
 		<!-- YouTube -->
 		<xsl:when test = "substring-after($data,'youtube.com') != '' or substring-after($data,'youtu.be') != ''">
+			<!-- info on video preload attribute: http://www.stevesouders.com/blog/2013/04/12/html5-video-preload/ -->
+			<!-- see #bug12622 -->
+			<video style="max-width: 100%;" class="ilPageVideo" preload="auto">
+				<xsl:if test="$width != ''">
+					<xsl:attribute name="width"><xsl:value-of select="$width"/></xsl:attribute>
+				</xsl:if>
+				<xsl:if test="$height != ''">
+					<xsl:attribute name="height"><xsl:value-of select="$height"/></xsl:attribute>
+				</xsl:if>
+				<!-- see #bug22632 -->
+				<xsl:attribute name="src"><xsl:value-of select="$httpprefix"/>//www.youtube.com/watch?v=<xsl:value-of select="//MediaObject[@Id=$cmobid]/MediaItem[@Purpose=$curPurpose]/Parameter[@Name='v']/@Value" />&amp;controls=0</xsl:attribute>
+			</video>
+		</xsl:when>
+		<!--
+		<xsl:when test = "substring-after($data,'youtube.com') != '' or substring-after($data,'youtu.be') != ''">
 			<xsl:if test="$width = '' and $height = ''">
 				<xsl:attribute name="class">embed-responsive embed-responsive-16by9</xsl:attribute>
 			</xsl:if>
-			<!-- iframe instead of object tag, see bug #21657 -->
 			<iframe frameborder="0" allowfullscreen="1">
 				<xsl:if test="$width != ''">
 					<xsl:attribute name="width"><xsl:value-of select="$width"/></xsl:attribute>
@@ -2700,7 +2722,7 @@
 				</xsl:attribute>
 				<xsl:comment>Comment to have separate iframe ending tag</xsl:comment>
 			</iframe>
-		</xsl:when>
+		</xsl:when>-->
 		<xsl:when test = "substring-after($data,'xxxyoutube.com') != ''">
 			<object>
 				<xsl:if test="$width != ''">
@@ -2775,10 +2797,14 @@
 
 		<!-- mp3 (mediaelement.js) -->
 		<xsl:when test = "$type='audio/mpeg' and (substring-before($data,'.mp3') != '' or substring-before($data,'.MP3') != '')">
-			<audio class="ilPageAudio" height="40" preload="meta">
+			<audio class="ilPageAudio" preload="metadata">
 				<xsl:attribute name="src"><xsl:value-of select="$data"/></xsl:attribute>
 				<xsl:if test="$width != ''">
 					<xsl:attribute name="width"><xsl:value-of select="$width"/></xsl:attribute>
+					<xsl:attribute name="height">40</xsl:attribute>
+				</xsl:if>
+				<xsl:if test="$width = '' and $height = ''">
+					<xsl:attribute name="style">max-width: 100%; width: 100%; max-height: 100%;</xsl:attribute>
 				</xsl:if>
 				<xsl:if test="$mode != 'edit' and
 					(../MediaAliasItem[@Purpose = $curPurpose]/Parameter[@Name = 'autostart']/@Value = 'true' or
@@ -2882,6 +2908,21 @@
 			</xsl:if>
 		</xsl:when>
 
+		<xsl:when test = "$type = 'video/vimeo'">
+			<!-- info on video preload attribute: http://www.stevesouders.com/blog/2013/04/12/html5-video-preload/ -->
+			<!-- see #bug12622 -->
+			<video style="max-width: 100%;" class="ilPageVideo" preload="auto">
+				<xsl:if test="$width != ''">
+					<xsl:attribute name="width"><xsl:value-of select="$width"/></xsl:attribute>
+				</xsl:if>
+				<xsl:if test="$height != ''">
+					<xsl:attribute name="height"><xsl:value-of select="$height"/></xsl:attribute>
+				</xsl:if>
+				<!-- see #bug22632 -->
+				<xsl:attribute name="src"><xsl:value-of select="$data"/>?controls=0</xsl:attribute>
+			</video>
+		</xsl:when>
+
 		<!-- svg -->
 		<xsl:when test="substring($type, 1, 9) = 'image/svg'">
 			<embed style="width:100%">
@@ -2904,7 +2945,7 @@
 
 		<!-- 36216 -->
 		<xsl:when test = "$type='application/octet-stream'">
-			Unsupported Media Type
+			{{{{{Unsupported Media Type}}}}}
 		</xsl:when>
 
 		<!-- all other mime types: output standard object/embed tag -->
@@ -3065,6 +3106,12 @@
 	<xsl:attribute name="id">iim_popup_<xsl:value-of select = "$pg_id"/>_<xsl:number count="InteractiveImage" level="any" />_<xsl:value-of select = "@Nr"/></xsl:attribute>
 	<xsl:if test="$mode != 'edit'">
 		<xsl:attribute name="style">display: none;</xsl:attribute>
+		<xsl:attribute name="data-copg-iim-data-type">popup</xsl:attribute>
+		<xsl:attribute name="data-copg-iim-id"><xsl:value-of select = "$pg_id"/>_<xsl:number count="InteractiveImage" level="any" /></xsl:attribute>
+		<xsl:attribute name="data-copg-iim-pop-id"><xsl:value-of select = "$pg_id"/>_<xsl:number count="ContentPopup" level="any" /></xsl:attribute>
+		<xsl:attribute name="data-copg-iim-div-id">iim_popup_<xsl:value-of select = "$pg_id"/>_<xsl:number count="ContentPopup" level="any" /></xsl:attribute>
+		<xsl:attribute name="data-copg-iim-nr"><xsl:value-of select="@Nr"/></xsl:attribute>
+		<xsl:attribute name="data-copg-iim-title"><xsl:value-of select="@Title"/></xsl:attribute>
 	</xsl:if>
 	<xsl:if test="$mode = 'edit'">
 		<xsl:attribute name="style">border: 1px solid #000000; padding: 20px; margin-bottom:10px;</xsl:attribute>
@@ -3072,17 +3119,6 @@
 			<i><b><xsl:value-of select="@Title" /></b></i>
 			<xsl:comment>Break</xsl:comment>
 		</div>
-	</xsl:if>
-	
-	<xsl:if test="$mode != 'edit'">
-		<script type="text/javascript">
-			il.Util.addOnLoad(function() {il.COPagePres.addIIMPopup({iim_id: '<xsl:value-of select = "$pg_id"/>_<xsl:number count="InteractiveImage" level="any" />',
-				pop_id: '<xsl:value-of select = "$pg_id"/>_<xsl:number count="ContentPopup" level="any" />',
-				div_id: 'iim_popup_<xsl:value-of select = "$pg_id"/>_<xsl:number count="ContentPopup" level="any" />',
-				nr: '<xsl:value-of select="@Nr"/>',
-				title: '<xsl:value-of select="@Title" />'
-			})});
-		</script>
 	</xsl:if>
 
 	<!-- Content -->
@@ -3130,17 +3166,24 @@
 		</xsl:if>
 	</xsl:if>
 	<xsl:if test="$map_edit_mode != 'get_coords'">
-		<script type="text/javascript">
-			il.Util.addOnLoad(function() {il.COPagePres.addIIMTrigger({iim_id: '<xsl:value-of select = "$pg_id"/>_<xsl:number count="InteractiveImage" level="any" />',
-				type: '<xsl:value-of select="@Type"/>', title: '<xsl:value-of select="@Title"/>',
-				ovx: '<xsl:value-of select="@OverlayX"/>', ovy: '<xsl:value-of select="@OverlayY"/>',
-				markx: '<xsl:value-of select="@MarkerX"/>', marky: '<xsl:value-of select="@MarkerY"/>',
-				popup_nr: '<xsl:value-of select="@PopupNr"/>', nr: '<xsl:value-of select="@Nr"/>',
-				popx: '<xsl:value-of select="@PopupX"/>', popy: '<xsl:value-of select="@PopupY"/>',
-				popwidth: '<xsl:value-of select="@PopupWidth"/>', popheight: '<xsl:value-of select="@PopupHeight"/>',
-				tr_id: '<xsl:value-of select = "$pg_id"/>_<xsl:number count="Trigger" level="any" />'
-			})});
-		</script>
+		<span style="display:none;">
+			<xsl:attribute name="data-copg-iim-data-type">trigger</xsl:attribute>
+			<xsl:attribute name="data-copg-iim-id"><xsl:value-of select = "$pg_id"/>_<xsl:number count="InteractiveImage" level="any" /></xsl:attribute>
+			<xsl:attribute name="data-copg-iim-type"><xsl:value-of select="@Type"/></xsl:attribute>
+			<xsl:attribute name="data-copg-iim-title"><xsl:value-of select="@Title"/></xsl:attribute>
+			<xsl:attribute name="data-copg-iim-ovx"><xsl:value-of select="@OverlayX"/></xsl:attribute>
+			<xsl:attribute name="data-copg-iim-ovy"><xsl:value-of select="@OverlayY"/></xsl:attribute>
+			<xsl:attribute name="data-copg-iim-markx"><xsl:value-of select="@MarkerX"/></xsl:attribute>
+			<xsl:attribute name="data-copg-iim-marky"><xsl:value-of select="@MarkerY"/></xsl:attribute>
+			<xsl:attribute name="data-copg-iim-popup-nr"><xsl:value-of select="@PopupNr"/></xsl:attribute>
+			<xsl:attribute name="data-copg-iim-nr"><xsl:value-of select="@Nr"/></xsl:attribute>
+			<xsl:attribute name="data-copg-iim-popx"><xsl:value-of select="@PopupX"/></xsl:attribute>
+			<xsl:attribute name="data-copg-iim-popy"><xsl:value-of select="@PopupY"/></xsl:attribute>
+			<xsl:attribute name="data-copg-iim-popwidth"><xsl:value-of select="@PopupWidth"/></xsl:attribute>
+			<xsl:attribute name="data-copg-iim-popheight"><xsl:value-of select="@PopupHeight"/></xsl:attribute>
+			<xsl:attribute name="data-copg-iim-tr-id"><xsl:value-of select = "$pg_id"/>_<xsl:number count="Trigger" level="any" /></xsl:attribute>
+			<xsl:comment>Break</xsl:comment>
+		</span>
 	</xsl:if>
 </xsl:template>
 
@@ -3148,18 +3191,17 @@
 <xsl:template name="Marker">
 	<xsl:if test="@Type = 'Marker'">
 		<a class="ilc_marker_Marker" style="display:none;">
-		<xsl:attribute name="id">iim_mark_<xsl:value-of select = "$pg_id"/>_<xsl:number count="Trigger" level="any" /></xsl:attribute>
-		<xsl:comment>Break</xsl:comment>
+			<xsl:attribute name="data-copg-iim-data-type">marker</xsl:attribute>
+			<xsl:attribute name="data-copg-iim-id"><xsl:value-of select = "$pg_id"/>_<xsl:number count="InteractiveImage" level="any" /></xsl:attribute>
+			<xsl:attribute name="data-copg-iim-m-id">iim_mark_<xsl:value-of select = "$pg_id"/>_<xsl:number count="Trigger" level="any" /></xsl:attribute>
+			<xsl:attribute name="data-copg-iim-markx"><xsl:value-of select="@MarkerX"/></xsl:attribute>
+			<xsl:attribute name="data-copg-iim-marky"><xsl:value-of select="@MarkerY"/></xsl:attribute>
+			<xsl:attribute name="data-copg-iim-tr-nr"><xsl:value-of select="@Nr"/></xsl:attribute>
+			<xsl:attribute name="data-copg-iim-tr-id"><xsl:value-of select = "$pg_id"/>_<xsl:number count="Trigger" level="any" /></xsl:attribute>
+			<xsl:attribute name="data-copg-iim-edit-mode"><xsl:if test="$mode = 'edit'">1</xsl:if></xsl:attribute>
+			<xsl:attribute name="id">iim_mark_<xsl:value-of select = "$pg_id"/>_<xsl:number count="Trigger" level="any" /></xsl:attribute>
+			<xsl:comment>Break</xsl:comment>
 		</a>
-		<script type="text/javascript">
-			il.Util.addOnLoad(function() {il.COPagePres.addIIMMarker({iim_id: '<xsl:value-of select = "$pg_id"/>_<xsl:number count="InteractiveImage" level="any" />',
-				m_id: 'iim_mark_<xsl:value-of select = "$pg_id"/>_<xsl:number count="Trigger" level="any" />',
-				markx: '<xsl:value-of select="@MarkerX"/>', marky: '<xsl:value-of select="@MarkerY"/>',
-				tr_nr: '<xsl:value-of select="@Nr"/>',
-				tr_id: '<xsl:value-of select = "$pg_id"/>_<xsl:number count="Trigger" level="any" />',
-				edit_mode: '<xsl:if test="$mode = 'edit'">1</xsl:if>'
-			})});
-		</script>
 	</xsl:if>
 </xsl:template>
 
@@ -3249,7 +3291,13 @@
 				</a>
 			</xsl:if>
 			<xsl:if test="(not(./ExtLink) and not(./IntLink)) or $mode = 'edit'">
+				<xsl:if test="$mode = 'edit' and $activated_protection = 'y' and @Protected = '1'">
+					<div class="small"><xsl:value-of select="$protection_text"/></div>
+				</xsl:if>
 				<div>
+					<xsl:if test="$activated_protection = 'y' and @Protected = '1'">
+						<xsl:attribute name="data-protected">1</xsl:attribute>
+					</xsl:if>
 					<xsl:call-template name="SectionContent" />
 				</div>
 			</xsl:if>
@@ -3271,7 +3319,7 @@
 			</xsl:if>
 		</xsl:if>
 		<xsl:if test="$mode = 'edit'">
-			<xsl:attribute name="style">min-height: 60px; height: auto !important; height: 60px; position:static; display: block;</xsl:attribute>
+			<xsl:attribute name="style">min-height: 60px; height: auto !important; height: 60px; position:static; display: block; margin:0;</xsl:attribute>
 		</xsl:if>
 		<xsl:call-template name="EditReturnAnchors"/>
 		<!-- command selectbox -->
@@ -3559,8 +3607,10 @@
 					</xsl:choose>
 				</xsl:variable>
 				<script type="text/javascript">
-					$(function () {
-						il.Accordion.add({
+					if (typeof ilAccordionsInits === 'undefined') {
+						var ilAccordionsInits = [];
+					}
+					ilAccordionsInits.push({
 							id: 'ilc_accordion_<xsl:value-of select = "$pg_id"/>_<xsl:number count="Tabs" level="any" />',
 							toggle_class: 'il_VAccordionToggleDef',
 							toggle_act_class: 'il_VAccordionToggleActiveDef',
@@ -3573,8 +3623,8 @@
 							active_head_class: '<xsl:value-of select="$aheadclass"/>',
 							int_id: '',
 							multi: false
-							});
-						});
+							}
+					);
 				</script>
 			</xsl:if>
 			<xsl:if test="@Type = 'HorizontalAccordion' and $mode != 'print' and $compare_mode = 'n'">
@@ -3585,8 +3635,10 @@
 					</xsl:choose>
 				</xsl:variable>
 				<script type="text/javascript">
-					$(function () {
-						il.Accordion.add({
+					if (typeof ilAccordionsInits === 'undefined') {
+						var ilAccordionsInits = [];
+					}
+					ilAccordionsInits.push({
 							id: 'ilc_accordion_<xsl:value-of select = "$pg_id"/>_<xsl:number count="Tabs" level="any" />',
 							toggle_class: 'il_HAccordionToggleDef',
 							toggle_act_class: 'il_HAccordionToggleActiveDef',
@@ -3599,14 +3651,15 @@
 							active_head_class: '<xsl:value-of select="$aheadclass"/>',
 							int_id: '',
 							multi: false
-							});
 						});
 				</script>
 			</xsl:if>
 			<xsl:if test="@Type = 'Carousel' and $mode != 'print' and $compare_mode = 'n'">
 				<script type="text/javascript">
-					$(function () {
-					il.Accordion.add({
+					if (typeof ilAccordionsInits === 'undefined') {
+						var ilAccordionsInits = [];
+					}
+					ilAccordionsInits.push({
 					id: 'ilc_accordion_<xsl:value-of select = "$pg_id"/>_<xsl:number count="Tabs" level="any" />',
 					toggle_class: '',
 					toggle_act_class: '',
@@ -3621,7 +3674,6 @@
 					multi: false,
 					auto_anim_wait: <xsl:value-of select="number(@AutoAnimWait)" />,
 					random_start: <xsl:value-of select="number(@RandomStart)" />
-					});
 					});
 				</script>
 			</xsl:if>
@@ -4260,6 +4312,43 @@
 	</xsl:if>
 </xsl:template>
 
+<!-- Advanced MD Page List -->
+<xsl:template match="AMDForm">
+	[[[[[AMDForm;<xsl:value-of select="@RecordIds"/>]]]]]
+</xsl:template>
+
+<!-- (LSO) Curriculum -->
+<xsl:template match="Curriculum">
+	<xsl:if test="$mode = 'edit'">
+		<div class="copg-content-placeholder-lso-curriculum">
+			<img class="icon pewl medium" src="./templates/default/images/icon_pewl.svg" alt="curriculum" />
+			<div>Curriculum</div>
+		</div>
+	</xsl:if>
+	<xsl:if test="$mode != 'edit'">
+		<Curriculum>
+			[[[CURRICULUM]]]
+		</Curriculum>
+	</xsl:if>
+</xsl:template>
+
+<!-- (LSO) Launcher -->
+<xsl:template match="Launcher">
+	<xsl:if test="$mode = 'edit'">
+		<div class="copg-content-placeholder-lso-startbutton il-lso-startbutton-container">
+			<button class="btn btn-default">Start Learning Sequence</button>
+		</div>
+	</xsl:if>
+	<xsl:if test="$mode != 'edit'">
+		<div class="il-lso-startbutton-container">
+			<Launcher>
+				[[[LAUNCHER]]]
+			</Launcher>
+		</div>
+	</xsl:if>
+</xsl:template>
+
+
 <!-- helper functions -->
 
 <xsl:template name="substring-before-last">
@@ -4278,6 +4367,9 @@
 			</xsl:call-template>
 		</xsl:if>
 	</xsl:if>
+</xsl:template>
+
+<xsl:template match="script">
 </xsl:template>
 
 </xsl:stylesheet>

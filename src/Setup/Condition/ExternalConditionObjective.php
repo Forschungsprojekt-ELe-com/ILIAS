@@ -1,6 +1,22 @@
 <?php
 
-/* Copyright (c) 2019 Richard Klees <richard.klees@concepts-and-training.de> Extended GPL, see docs/LICENSE */
+/**
+ * This file is part of ILIAS, a powerful learning management system
+ * published by ILIAS open source e-Learning e.V.
+ *
+ * ILIAS is licensed with the GPL-3.0,
+ * see https://www.gnu.org/licenses/gpl-3.0.en.html
+ * You should have received a copy of said license along with the
+ * source code, too.
+ *
+ * If this is not the case or you just want to try ILIAS, you'll find
+ * us at:
+ * https://www.ilias.de
+ * https://github.com/ILIAS-eLearning
+ *
+ *********************************************************************/
+
+declare(strict_types=1);
 
 namespace ILIAS\Setup\Condition;
 
@@ -15,35 +31,30 @@ use ILIAS\Setup;
  */
 class ExternalConditionObjective implements Setup\Objective
 {
-    /**
-     * @var string
-     */
-    protected $label;
-
-    /**
-     * @var callable
-     */
-    protected $condition;
-
-    /**
-     * @var string|null
-     */
-    protected $message;
+    protected string $label;
+    protected \Closure $condition;
+    protected ?string $message;
+    protected bool $block_setup;
 
     /**
      * @param callable $condition needs to be function from Environment to bool.
      */
-    public function __construct(string $label, callable $condition, string $message = null)
-    {
+    public function __construct(
+        string $label,
+        \Closure $condition,
+        string $message = null,
+        bool $block_setup = false
+    ) {
         $this->condition = $condition;
         $this->label = $label;
         $this->message = $message;
+        $this->block_setup = $block_setup;
     }
 
     /**
      * @inheritdoc
      */
-    public function getHash() : string
+    public function getHash(): string
     {
         return hash(
             "sha256",
@@ -54,7 +65,7 @@ class ExternalConditionObjective implements Setup\Objective
     /**
      * @inheritdoc
      */
-    public function getLabel() : string
+    public function getLabel(): string
     {
         return $this->label;
     }
@@ -62,7 +73,7 @@ class ExternalConditionObjective implements Setup\Objective
     /**
      * @inheritdoc
      */
-    public function isNotable() : bool
+    public function isNotable(): bool
     {
         return true;
     }
@@ -70,7 +81,7 @@ class ExternalConditionObjective implements Setup\Objective
     /**
      * @inheritdoc
      */
-    public function getPreconditions(Setup\Environment $environment) : array
+    public function getPreconditions(Setup\Environment $environment): array
     {
         return [];
     }
@@ -78,7 +89,7 @@ class ExternalConditionObjective implements Setup\Objective
     /**
      * @inheritdoc
      */
-    public function achieve(Setup\Environment $environment) : Setup\Environment
+    public function achieve(Setup\Environment $environment): Setup\Environment
     {
         if (($this->condition)($environment)) {
             return $environment;
@@ -88,16 +99,17 @@ class ExternalConditionObjective implements Setup\Objective
             $admin_interaction = $environment->getResource(Setup\Environment::RESOURCE_ADMIN_INTERACTION);
             $admin_interaction->inform($this->message);
         }
+        if ($this->block_setup) {
+            throw new Setup\NotExecutableException("An external condition was not met: $this->label");
+        }
 
-        throw new Setup\UnachievableException(
-            "An external condition was not met: {$this->label}"
-        );
+        throw new Setup\UnachievableException("An external condition was not met: $this->label");
     }
 
     /**
      * @inheritDoc
      */
-    public function isApplicable(Setup\Environment $environment) : bool
+    public function isApplicable(Setup\Environment $environment): bool
     {
         return true;
     }

@@ -1,8 +1,22 @@
 <?php
-/* Copyright (c) 1998-2013 ILIAS open source, Extended GPL, see docs/LICENSE */
 
-require_once 'Modules/TestQuestionPool/classes/class.ilAssQuestionSkillAssignmentsGUI.php';
-require_once 'Modules/TestQuestionPool/classes/class.ilAssQuestionSkillUsagesTableGUI.php';
+/**
+ * This file is part of ILIAS, a powerful learning management system
+ * published by ILIAS open source e-Learning e.V.
+ *
+ * ILIAS is licensed with the GPL-3.0,
+ * see https://www.gnu.org/licenses/gpl-3.0.en.html
+ * You should have received a copy of said license along with the
+ * source code, too.
+ *
+ * If this is not the case or you just want to try ILIAS, you'll find
+ * us at:
+ * https://www.ilias.de
+ * https://github.com/ILIAS-eLearning
+ *
+ *********************************************************************/
+
+use ILIAS\Refinery\Factory as Refinery;
 
 /**
  * @author		Björn Heyser <bheyser@databay.de>
@@ -24,6 +38,8 @@ class ilQuestionPoolSkillAdministrationGUI
      * @var ilCtrl
      */
     private $ctrl;
+
+    private Refinery $refinery;
 
     /**
      * @var ilAccessHandler
@@ -50,32 +66,43 @@ class ilQuestionPoolSkillAdministrationGUI
      */
     private $db;
 
-    /**
-     * @var ilPluginAdmin
-     */
-    private $pluginAdmin;
+    private ilComponentRepository $component_repository;
 
     /**
      * @var ilObjQuestionPool
      */
     private $poolOBJ;
-    
-    
-    public function __construct(ILIAS $ilias, ilCtrl $ctrl, ilAccessHandler $access, ilTabsGUI $tabs, ilGlobalTemplateInterface $tpl, ilLanguage $lng, ilDBInterface $db, ilPluginAdmin $pluginAdmin, ilObjQuestionPool $poolOBJ, $refId)
-    {
+
+    /** @var string|int|null  */
+    private $refId;
+
+    public function __construct(
+        ILIAS $ilias,
+        ilCtrl $ctrl,
+        Refinery $refinery,
+        ilAccessHandler $access,
+        ilTabsGUI $tabs,
+        ilGlobalTemplateInterface $tpl,
+        ilLanguage $lng,
+        ilDBInterface $db,
+        ilComponentRepository $component_repository,
+        ilObjQuestionPool $poolOBJ,
+        $refId
+    ) {
         $this->ilias = $ilias;
         $this->ctrl = $ctrl;
+        $this->refinery = $refinery;
         $this->access = $access;
         $this->tabs = $tabs;
         $this->tpl = $tpl;
         $this->lng = $lng;
         $this->db = $db;
-        $this->pluginAdmin = $pluginAdmin;
+        $this->component_repository = $component_repository;
         $this->poolOBJ = $poolOBJ;
         $this->refId = $refId;
     }
 
-    private function isAccessDenied()
+    private function isAccessDenied(): bool
     {
         if (!$this->poolOBJ->isSkillServiceEnabled()) {
             return true;
@@ -92,7 +119,7 @@ class ilQuestionPoolSkillAdministrationGUI
         return false;
     }
 
-    public function manageTabs($activeSubTabId)
+    public function manageTabs($activeSubTabId): void
     {
         $link = $this->ctrl->getLinkTargetByClass(
             'ilAssQuestionSkillAssignmentsGUI',
@@ -102,9 +129,8 @@ class ilQuestionPoolSkillAdministrationGUI
             'ilassquestionskillassignmentsgui',
             $this->lng->txt('qpl_skl_sub_tab_quest_assign'),
             $link
-
         );
-        
+
         $link = $this->ctrl->getLinkTargetByClass(
             'ilAssQuestionSkillUsagesTableGUI',
             ilAssQuestionSkillUsagesTableGUI::CMD_SHOW
@@ -113,14 +139,13 @@ class ilQuestionPoolSkillAdministrationGUI
             'ilassquestionskillusagestablegui',
             $this->lng->txt('qpl_skl_sub_tab_usages'),
             $link
-
         );
 
         $this->tabs->activateTab('qpl_tab_competences');
         $this->tabs->activateSubTab($activeSubTabId);
     }
 
-    public function executeCommand()
+    public function executeCommand(): void
     {
         if ($this->isAccessDenied()) {
             $this->ilias->raiseError($this->lng->txt("permission_denied"), $this->ilias->error_obj->MESSAGE);
@@ -132,9 +157,12 @@ class ilQuestionPoolSkillAdministrationGUI
 
         switch ($nextClass) {
             case 'ilassquestionskillassignmentsgui':
-
-                require_once 'Modules/TestQuestionPool/classes/class.ilAssQuestionList.php';
-                $questionList = new ilAssQuestionList($this->db, $this->lng, $this->pluginAdmin);
+                $questionList = new ilAssQuestionList(
+                    $this->db,
+                    $this->lng,
+                    $this->refinery,
+                    $this->component_repository
+                );
                 $questionList->setParentObjId($this->poolOBJ->getId());
                 $questionList->setQuestionInstanceTypeFilter(ilAssQuestionList::QUESTION_INSTANCE_TYPE_ORIGINALS);
                 $questionList->load();

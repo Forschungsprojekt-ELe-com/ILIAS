@@ -1,110 +1,33 @@
 <?php
 
-/* Copyright (c) 2017 Richard Klees <richard.klees@concepts-and-training.de> Extended GPL, see docs/LICENSE */
+declare(strict_types=1);
+
+/**
+ * This file is part of ILIAS, a powerful learning management system
+ * published by ILIAS open source e-Learning e.V.
+ *
+ * ILIAS is licensed with the GPL-3.0,
+ * see https://www.gnu.org/licenses/gpl-3.0.en.html
+ * You should have received a copy of said license along with the
+ * source code, too.
+ *
+ * If this is not the case or you just want to try ILIAS, you'll find
+ * us at:
+ * https://www.ilias.de
+ * https://github.com/ILIAS-eLearning
+ *
+ *********************************************************************/
 
 namespace ILIAS\UI\Component\Input\Field;
 
-use ILIAS\UI\Component\Component;
-use ILIAS\Refinery\Transformation;
-use ILIAS\UI\Component\JavaScriptBindable;
-use ILIAS\UI\Component\OnUpdateable;
-
 /**
- * This describes inputs that can be used in forms.
+ * This is a legacy support of Component\Input\Field\Input 
+ * that has been moved to Component\Input\Container\Form\FormInput.
+ * 
+ * Please always hint to \ILIAS\UI\Component\Input\Container\Form\FormInput
+ * 
+ * @deprecated removed in 9
  */
-interface FormInput extends Component, Input, JavaScriptBindable, OnUpdateable
+interface FormInput
 {
-    /**
-     * Get the label of the input.
-     *
-     * @return    string
-     */
-    public function getLabel();
-
-    /**
-     * Get an input like this, but with a replaced label.
-     *
-     * @param    string $label
-     *
-     * @return    Input
-     */
-    public function withLabel($label);
-
-    /**
-     * Get the byline of the input.
-     *
-     * @return    string|null
-     */
-    public function getByline();
-
-    /**
-     * Get an input like this, but with an additional/replaced label.
-     *
-     * @param    string|null $byline
-     *
-     * @return    Input
-     */
-    public function withByline($byline);
-
-    /**
-     * Is this field required?
-     *
-     * @return    bool
-     */
-    public function isRequired();
-
-    /**
-     * Get an input like this, but set the field to be required (or not).
-     *
-     * @param    bool $is_required
-     *
-     * @return    Input
-     */
-    public function withRequired($is_required);
-
-    /**
-     * Is this input disabled?
-     *
-     * @return    bool
-     */
-    public function isDisabled();
-
-    /**
-     * Get an input like this, but set it to a disabled state.
-     *
-     * @param    bool $is_disabled
-     *
-     * @return    Input
-     */
-    public function withDisabled($is_disabled);
-
-    /**
-     * The error of the input as used in HTML.
-     *
-     * @return string|null
-     */
-    public function getError();
-
-    /**
-     * Get an input like this one, with a different error.
-     *
-     * @param    string
-     *
-     * @return    Input
-     */
-    public function withError($error);
-
-    /**
-     * Get update code
-     *
-     * This method has to return JS code that calls
-     * il.UI.filter.onFieldUpdate(event, '$id', string_value);
-     * - initially "onload" and
-     * - on every input change.
-     * It must pass a readable string representation of its value in parameter 'string_value'.
-     *
-     * @param \Closure $binder
-     * @return string
-     */
-    public function getUpdateOnLoadCode() : \Closure;
 }

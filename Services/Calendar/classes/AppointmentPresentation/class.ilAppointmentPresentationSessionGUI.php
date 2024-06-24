@@ -1,34 +1,42 @@
 <?php
-include_once './Services/Calendar/interfaces/interface.ilCalendarAppointmentPresentation.php';
-include_once './Services/Calendar/classes/AppointmentPresentation/class.ilAppointmentPresentationGUI.php';
 
 /**
+ * This file is part of ILIAS, a powerful learning management system
+ * published by ILIAS open source e-Learning e.V.
  *
- * @author Jesús López Reyes <lopez@leifos.com>
- * @version $Id$
+ * ILIAS is licensed with the GPL-3.0,
+ * see https://www.gnu.org/licenses/gpl-3.0.en.html
+ * You should have received a copy of said license along with the
+ * source code, too.
  *
+ * If this is not the case or you just want to try ILIAS, you'll find
+ * us at:
+ * https://www.ilias.de
+ * https://github.com/ILIAS-eLearning
+ *
+ *********************************************************************/
+
+declare(strict_types=1);
+
+use ILIAS\UI\Component\Link\Standard as StandardLink;
+
+/**
+ * @author            Jesús López Reyes <lopez@leifos.com>
  * @ilCtrl_IsCalledBy ilAppointmentPresentationSessionGUI: ilCalendarAppointmentPresentationGUI
- *
- * @ingroup ServicesCalendar
+ * @ingroup           ServicesCalendar
  */
 class ilAppointmentPresentationSessionGUI extends ilAppointmentPresentationGUI implements ilCalendarAppointmentPresentation
 {
-    public function collectPropertiesAndActions()
+    public function collectPropertiesAndActions(): void
     {
-        global $DIC;
-
-        $f = $DIC->ui()->factory();
-        $r = $DIC->ui()->renderer();
+        $file_infos = new ilObjFileInfoRepository();
+        $f = $this->ui->factory();
+        $r = $this->ui->renderer();
         $this->lng->loadLanguageModule("sess");
         $this->lng->loadLanguageModule("crs");
-        /**
-         * @var ilCalendarEntry
-         */
+
         $a_app = $this->appointment;
-        include_once "./Modules/Session/classes/class.ilObjSession.php";
-
         $cat_info = $this->getCatInfo();
-
         $refs = $this->getReadableRefIds($this->getObjIdForAppointment());
         $ref_id = current($refs);
 
@@ -37,9 +45,6 @@ class ilAppointmentPresentationSessionGUI extends ilAppointmentPresentationGUI i
 
         // event description
         $this->addEventDescription($a_app);
-
-        // event location
-        $this->addEventLocation($a_app);
 
         //Contained in:
         $this->addContainerInfo($this->getObjIdForAppointment());
@@ -53,12 +58,21 @@ class ilAppointmentPresentationSessionGUI extends ilAppointmentPresentationGUI i
 
         //location
         if ($session_obj->getLocation()) {
-            $this->addInfoProperty($this->lng->txt("event_location"), ilUtil::makeClickable(nl2br($session_obj->getLocation())));
-            $this->addListItemProperty($this->lng->txt("event_location"), ilUtil::makeClickable(nl2br($session_obj->getLocation())));
+            $this->addInfoProperty(
+                $this->lng->txt("event_location"),
+                ilUtil::makeClickable(nl2br($session_obj->getLocation()))
+            );
+            $this->addListItemProperty(
+                $this->lng->txt("event_location"),
+                ilUtil::makeClickable(nl2br($session_obj->getLocation()))
+            );
         }
         //details/workflow
         if ($session_obj->getDetails()) {
-            $this->addInfoProperty($this->lng->txt("event_details_workflow"), ilUtil::makeClickable(nl2br($session_obj->getDetails())));
+            $this->addInfoProperty(
+                $this->lng->txt("event_details_workflow"),
+                ilUtil::makeClickable(nl2br($session_obj->getDetails()))
+            );
         }
         //lecturer name
         $str_lecturer = array();
@@ -79,24 +93,24 @@ class ilAppointmentPresentationSessionGUI extends ilAppointmentPresentationGUI i
 
         $eventItems = ilObjectActivation::getItemsByEvent($this->getObjIdForAppointment());
         if (count($eventItems)) {
-            include_once('./Services/Link/classes/class.ilLink.php');
-            $str = array();
+            $links = [];
             foreach ($eventItems as $file) {
-                if ($file['type'] == "file") {
+                if ($file['type'] === "file") {
+                    $file_ref_id = (int) $file['ref_id'];
+                    $file_info = $file_infos->getByRefId($file_ref_id);
                     $this->has_files = true;
-                    $href = ilLink::_getStaticLink($file['ref_id'], "file", true, "download");
-                    $link = $f->link()->standard($file['title'], $href);
-                    require_once('Modules/File/classes/class.ilObjFileAccess.php');
-                    if (ilObjFileAccess::_isFileInline($file["title"])) {
+                    $href = ilLink::_getStaticLink($file_ref_id, "file", true, '_download');
+                    $link = $f->link()->standard($file_info->getListTitle(), $href);
+                    if ($file_info->shouldDeliverInline()) {
                         $link = $link->withOpenInNewViewport(true);
                     }
-                    $str[$file['title']] = $r->render($link);
+                    $links[] = $link;
                 }
             }
             if ($this->has_files) {
-                ksort($str, SORT_NATURAL | SORT_FLAG_CASE);
-                $this->addInfoProperty($this->lng->txt("files"), implode("<br>", $str));
-                $this->addListItemProperty($this->lng->txt("files"), implode(", ", $str));
+                $rendered = $this->sortAndRenderLinks(...$links);
+                $this->addInfoProperty($this->lng->txt("files"), implode("<br>", $rendered));
+                $this->addListItemProperty($this->lng->txt("files"), implode(", ", $rendered));
             }
         }
 
@@ -123,14 +137,11 @@ class ilAppointmentPresentationSessionGUI extends ilAppointmentPresentationGUI i
     /**
      * @return int[]
      */
-    protected function getOtherMaterials() : array
+    protected function getOtherMaterials(): array
     {
-        global $DIC;
-
         $event_items = new ilEventItems($this->getObjIdForAppointment());
         $others = [];
         foreach ($event_items->getItems() as $ref_id) {
-
             $type = ilObject::_lookupType($ref_id, true);
             if ($type == 'file') {
                 continue;
@@ -140,5 +151,20 @@ class ilAppointmentPresentationSessionGUI extends ilAppointmentPresentationGUI i
             }
         }
         return $others;
+    }
+
+    /**
+     * @return string[]
+     */
+    protected function sortAndRenderLinks(StandardLink ...$links): array
+    {
+        usort($links, function (StandardLink $a, $b) {
+            return $a->getLabel() <=> $b->getLabel();
+        });
+        $rendered = [];
+        foreach ($links as $link) {
+            $rendered[] = $this->ui->renderer()->render($link);
+        }
+        return $rendered;
     }
 }

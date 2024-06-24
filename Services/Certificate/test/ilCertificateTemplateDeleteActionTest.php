@@ -1,16 +1,31 @@
 <?php
-/* Copyright (c) 1998-2018 ILIAS open source, Extended GPL, see docs/LICENSE */
+
+/**
+ * This file is part of ILIAS, a powerful learning management system
+ * published by ILIAS open source e-Learning e.V.
+ *
+ * ILIAS is licensed with the GPL-3.0,
+ * see https://www.gnu.org/licenses/gpl-3.0.en.html
+ * You should have received a copy of said license along with the
+ * source code, too.
+ *
+ * If this is not the case or you just want to try ILIAS, you'll find
+ * us at:
+ * https://www.ilias.de
+ * https://github.com/ILIAS-eLearning
+ *
+ *********************************************************************/
+
+declare(strict_types=1);
 
 /**
  * @author  Niels Theen <ntheen@databay.de>
  */
 class ilCertificateTemplateDeleteActionTest extends ilCertificateBaseTestCase
 {
-    public function testDeleteTemplateAndUseOldThumbnail()
+    public function testDeleteTemplateAndUseOldThumbnail(): void
     {
-        $templateRepositoryMock = $this->getMockBuilder('ilCertificateTemplateRepository')
-            ->disableOriginalConstructor()
-            ->getMock();
+        $templateRepositoryMock = $this->getMockBuilder(ilCertificateTemplateRepository::class)->getMock();
 
         $templateRepositoryMock
             ->method('deleteTemplate')
@@ -24,7 +39,7 @@ class ilCertificateTemplateDeleteActionTest extends ilCertificateBaseTestCase
                 'something',
                 md5('something'),
                 '[]',
-                '1',
+                1,
                 'v5.4.0',
                 1234567890,
                 true,
@@ -34,10 +49,10 @@ class ilCertificateTemplateDeleteActionTest extends ilCertificateBaseTestCase
         $templateRepositoryMock->expects($this->once())->method("deleteTemplate");
         $templateRepositoryMock->expects($this->once())->method("save");
 
-        $utilHelper = $this->getMockBuilder('ilCertificateUtilHelper')
+        $utilHelper = $this->getMockBuilder(ilCertificateUtilHelper::class)
             ->getMock();
 
-        $objectHelper = $this->getMockBuilder('ilCertificateObjectHelper')
+        $objectHelper = $this->getMockBuilder(ilCertificateObjectHelper::class)
             ->getMock();
 
         $objectHelper->method('lookUpType')

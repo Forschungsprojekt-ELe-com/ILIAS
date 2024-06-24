@@ -1,8 +1,6 @@
 <?php
 
 /**
-<<<<<<< HEAD
-=======
  * This file is part of ILIAS, a powerful learning management system
  * published by ILIAS open source e-Learning e.V.
  *
@@ -21,14 +19,11 @@
 declare(strict_types=1);
 
 /**
->>>>>>> 5ae4bd192a1... LSO: 34712, return LP_MODE_COLLECTION in LP defaults
  * lp connector
- *
- * @author Nils Haagen <nils.haagen@concepts-and-training.de>
  */
 class ilLSLP extends ilObjectLP
 {
-    public static function getDefaultModes($a_lp_active)
+    public static function getDefaultModes(bool $a_lp_active): array
     {
         if (!$a_lp_active) {
             return [
@@ -41,16 +36,16 @@ class ilLSLP extends ilObjectLP
         ];
     }
 
-    public function getDefaultMode()
+    public function getDefaultMode(): int
     {
         return ilLPObjSettings::LP_MODE_DEACTIVATED;
     }
 
-    public function getValidModes()
+    public function getValidModes(): array
     {
-        return array(
+        return [
             ilLPObjSettings::LP_MODE_DEACTIVATED,
             ilLPObjSettings::LP_MODE_COLLECTION
-        );
+        ];
     }
 }

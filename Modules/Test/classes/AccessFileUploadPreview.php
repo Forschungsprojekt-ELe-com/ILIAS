@@ -31,16 +31,13 @@ use ilObject;
 
 class AccessFileUploadPreview implements SimpleAccess
 {
-    /** @var ilDBInterface */
-    private $database;
-    /** @var ilAccess */
-    private $access;
-    /** @var Incident */
-    private $incident;
+    private ilDBInterface $database;
+    private ilAccess $access;
+    private Incident $incident;
     /** @var Closure(int): list<int> */
-    private $references_of;
+    private Closure $references_of;
     /** @var Closure(int, bool): string */
-    private $type_of;
+    private Closure $type_of;
 
     /**
      * @param ilDBInterface $database
@@ -81,11 +78,11 @@ class AccessFileUploadPreview implements SimpleAccess
     }
 
     /**
-     * @param int|numeric-string $ref_id
+     * @param int $ref_id
      */
-    public function refIdPermitted($ref_id): bool
+    public function refIdPermitted(int $ref_id): bool
     {
-        $ref_id = (int) $ref_id;
+        $ref_id = $ref_id;
         $type = ($this->type_of)($ref_id, true);
 
         switch ($type) {

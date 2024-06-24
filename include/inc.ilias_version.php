@@ -1,4 +1,5 @@
 <?php
+
 /* Copyright (c) 1998-2020 ILIAS open source e-Learning e.V., Extended GPL, see docs/LICENSE */
 
 /**
@@ -9,5 +10,5 @@
 *
 * @package ilias-core
 */
-define("ILIAS_VERSION", "7.26 2023-10-23");
-define("ILIAS_VERSION_NUMERIC", "7.26");			// since version ILIAS 6 this must be always x.y: x and y are numbers
+define("ILIAS_VERSION", "8.12 2024-05-28");
+define("ILIAS_VERSION_NUMERIC", "8.12");			// since version ILIAS 6 this must be always x.y: x and y are numbers
